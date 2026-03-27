@@ -24,7 +24,7 @@ echo "✓ Docker Compose $(docker-compose --version | cut -d' ' -f3 | tr -d ',')
 echo ""
 echo "▶ Cloning SignalPulse AI repository..."
 
-REPO_URL="https://github.com/YOUR_GITHUB_USERNAME/signalpulse.git"
+REPO_URL="REPO_URL="https://github.com/chasesinclair23/signalpulse.git"
 INSTALL_DIR="/opt/signalpulse"
 
 if [ -d "$INSTALL_DIR" ]; then
