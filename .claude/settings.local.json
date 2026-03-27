@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/chase/Documents/**)",
+      "Bash(npx create-next-app@latest signalpulse-init --typescript --tailwind --eslint --app --src-dir=no --import-alias=\"@/*\" --no-turbopack --yes)",
+      "Bash(cp -r /c/Users/chase/Documents/signalpulse-init/. /c/Users/chase/Documents/signalpulse/)",
+      "Bash(rm -rf /c/Users/chase/Documents/signalpulse-init)",
+      "Bash(cp /c/Users/chase/Documents/signalpulse-init/package.json /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp /c/Users/chase/Documents/signalpulse-init/tsconfig.json /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp /c/Users/chase/Documents/signalpulse-init/next.config.ts /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp /c/Users/chase/Documents/signalpulse-init/postcss.config.mjs /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp /c/Users/chase/Documents/signalpulse-init/eslint.config.mjs /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp -r /c/Users/chase/Documents/signalpulse-init/app /c/Users/chase/Documents/signalpulse/)",
+      "Bash(cp -r /c/Users/chase/Documents/signalpulse-init/public /c/Users/chase/Documents/signalpulse/)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const p = require\\(''./node_modules/next/package.json''\\); console.log\\(''next:'', p.version\\)\")",
+      "Bash(node -e \"const p = require\\(''./node_modules/@supabase/ssr/package.json''\\); console.log\\(''@supabase/ssr:'', p.version\\)\")",
+      "Bash(node -e \"const p = require\\(''./node_modules/@supabase/supabase-js/package.json''\\); console.log\\(''@supabase/supabase-js:'', p.version\\)\")",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=x NEXT_PUBLIC_SUPABASE_ANON_KEY=x npx tsc --noEmit 2>&1)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://qolusthqrhcontdvfvyx.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvbHVzdGhxcmhjb250ZHZmdnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NTQ3NDgsImV4cCI6MjA5MDEzMDc0OH0.ioN5BnJVn_NWl8Y9xfL1WX3KHi93CP6B-A8261tDVZ0 SUPABASE_SERVICE_ROLE_KEY=placeholder npm run build 2>&1)",
+      "Bash(cmd /c \"taskkill /PID 39072 /F\")",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://qolusthqrhcontdvfvyx.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvbHVzdGhxcmhjb250ZHZmdnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NTQ3NDgsImV4cCI6MjA5MDEzMDc0OH0.ioN5BnJVn_NWl8Y9xfL1WX3KHi93CP6B-A8261tDVZ0 SUPABASE_SERVICE_ROLE_KEY=placeholder npm run build)",
+      "Bash(node:*)"
+    ]
+  }
+}

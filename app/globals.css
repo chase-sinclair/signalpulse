@@ -1,26 +1,161 @@
 @import "tailwindcss";
 
+/* ── SignalPulse design tokens ─────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base:     #0a0a0f;
+  --bg-surface:  #111118;
+  --bg-elevated: #1a1a24;
+  --border:      #1e1e2e;
+  --accent:      #6366f1;
+  --accent-hot:  #f59e0b;
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+  --score-high:  #10b981;
+  --score-mid:   #f59e0b;
+  --score-low:   #ef4444;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── Base styles ────────────────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Dot-grid texture on the page background */
+body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='1' cy='1' r='1' fill='%231e1e2e'/%3E%3C/svg%3E");
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Range input ────────────────────────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Mobile responsive ──────────────────────────────────────────────────────── */
+
+/* KPI card grid — 4-across on desktop, 2×2 on mobile */
+.kpi-grid {
+  display: flex;
+  gap: 16px;
+}
+
+/* Sidebar filter toggle — only shown on mobile */
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+/* Mobile overlay behind open sidebar */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 39;
+}
+
+/* Header subtitle — hidden on small screens */
+.header-subtitle {
+  display: block;
+}
+
+/* Sidebar visibility — desktop: always in flow; mobile: fixed overlay */
+.sidebar-visible { display: block; }
+.sidebar-hidden  { display: none; }
+
+@media (min-width: 769px) {
+  /* On desktop override — sidebar is always visible regardless of state */
+  .sidebar-visible,
+  .sidebar-hidden { display: block !important; }
+  /* And the toggle button is always hidden */
+  .sidebar-toggle { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid {
+    flex-wrap: wrap;
+  }
+  .kpi-grid > * {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
+  }
+
+  .sidebar-toggle {
+    display: flex;
+  }
+
+  .mobile-overlay.is-open {
+    display: block;
+  }
+
+  .header-subtitle {
+    display: none;
+  }
+
+  /* Mobile sidebar: fixed overlay on top of content */
+  .sidebar-visible {
+    position: fixed;
+    top: 52px; /* header height */
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    overflow-y: auto;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Tooltip ────────────────────────────────────────────────────────────────── */
+.tooltip-parent { position: relative; }
+.tooltip-parent:hover .tooltip-text {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tooltip-text {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: normal;
+  width: 240px;
+  z-index: 50;
+  transition: opacity 150ms;
 }

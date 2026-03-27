@@ -1,64 +1,279 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { DashboardFilters, JobSignal } from '@/lib/types';
+import { mean } from '@/lib/utils';
+import FilterSidebar, { DEFAULT_FILTERS } from '@/components/FilterSidebar';
+import LeadsTable from '@/components/LeadsTable';
+import TrendChart from '@/components/TrendChart';
+import KpiCard from '@/components/KpiCard';
+
+// ── Query string builder ──────────────────────────────────────────────────────
+function buildQueryString(filters: DashboardFilters): string {
+  const params = new URLSearchParams();
+  params.set('min_score', String(filters.min_intent_score));
+  if (filters.hot_leads_only) params.set('hot', 'true');
+  if (filters.search) params.set('search', filters.search);
+  filters.job_families.forEach((f) => params.append('family', f));
+  filters.tags.forEach((t) => params.append('tag', t));
+  return params.toString();
+}
+
+// ── KPI skeleton ──────────────────────────────────────────────────────────────
+function KpiSkeleton() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <style>{`@keyframes kpi-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            animation: `kpi-pulse 1.5s ease-in-out ${i * 100}ms infinite`,
+          }}
+        >
+          <div style={{ height: 10, width: 80, borderRadius: 4, background: 'var(--bg-elevated)' }} />
+          <div style={{ height: 28, width: 60, borderRadius: 4, background: 'var(--bg-elevated)' }} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      ))}
+    </>
+  );
+}
+
+// ── Error card ────────────────────────────────────────────────────────────────
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div
+      style={{
+        background: 'rgba(239,68,68,0.08)',
+        border: '1px solid rgba(239,68,68,0.25)',
+        borderRadius: 10,
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+      }}
+    >
+      <span style={{ color: '#fca5a5', fontSize: 13 }}>
+        ⚠ Failed to load signals — {message}
+      </span>
+      <button
+        onClick={onRetry}
+        style={{
+          background: 'transparent',
+          border: '1px solid rgba(239,68,68,0.4)',
+          borderRadius: 6,
+          color: '#fca5a5',
+          fontSize: 12,
+          padding: '5px 12px',
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+// ── KPI icons (inline SVG) ────────────────────────────────────────────────────
+const IconSignals = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <polyline points="1,8 4,8 5.5,3 7.5,13 9.5,5 11,8 15,8"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IconHot = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M8 14s-5-3-5-7a5 5 0 0110 0c0 4-5 7-5 7z"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <circle cx="8" cy="7" r="1.5" fill="currentColor"/>
+  </svg>
+);
+const IconScore = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <polygon points="8,2 10,6 14,6.5 11,9.5 11.8,13.5 8,11.5 4.2,13.5 5,9.5 2,6.5 6,6"
+      stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+  </svg>
+);
+const IconCompanies = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="2" y="7" width="5" height="8" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+    <rect x="9" y="3" width="5" height="12" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+    <line x1="6" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="1.5"/>
+  </svg>
+);
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+export default function DashboardPage() {
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
+  const [signals, setSignals] = useState<JobSignal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  // Sidebar closed by default on mobile; open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Detect mobile on mount and close sidebar by default
+  useEffect(() => {
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
+
+  // Fetch distinct tags once on mount — not filter-dependent
+  useEffect(() => {
+    fetch('/api/tags')
+      .then((r) => r.json())
+      .then((d: { tags?: string[] }) => setAvailableTags(d.tags ?? []))
+      .catch((err) => console.error('Failed to fetch tags:', err));
+  }, []);
+
+  // Fetch signals whenever filters change
+  const fetchSignals = useCallback(async (f: DashboardFilters) => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const qs = buildQueryString(f);
+      const res = await fetch(`/api/signals?${qs}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { signals: JobSignal[]; count: number };
+      setSignals(data.signals ?? []);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Failed to fetch signals:', msg);
+      setFetchError(msg);
+      setSignals([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSignals(filters);
+  }, [filters, fetchSignals]);
+
+  // ── KPI values (computed client-side, no extra fetch) ──────────────────────
+  const kpi = useMemo(() => ({
+    total:     signals.length,
+    hotLeads:  signals.filter((s) => s.is_hot_lead).length,
+    avgScore:  mean(signals.map((s) => s.intent_score)),
+    companies: new Set(signals.map((s) => s.company_name)).size,
+  }), [signals]);
+
+  // ── TrendChart data ────────────────────────────────────────────────────────
+  const trendData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    signals.forEach((s) => {
+      if (s.job_family) counts[s.job_family] = (counts[s.job_family] ?? 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([family, count]) => ({ family, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [signals]);
+
+  function handleReset() {
+    setFilters(DEFAULT_FILTERS);
+  }
+
+  return (
+    <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+
+      {/* ── Mobile overlay — closes sidebar when tapping outside ─────────── */}
+      <div
+        className={`mobile-overlay${sidebarOpen ? ' is-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* ── Filter sidebar ─────────────────────────────────────────────────
+          On mobile: fixed-position overlay controlled by sidebarOpen.
+          On desktop: always visible in flow. ─────────────────────────── */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 40,
+          transition: 'transform 200ms ease',
+        }}
+        // Mobile: slide sidebar in/out. Desktop: no transform needed.
+        // We handle visibility via the FilterSidebar's own width on desktop
+        // and via fixed positioning on mobile (handled by CSS class below).
+      >
+        <div
+          className={sidebarOpen ? 'sidebar-visible' : 'sidebar-hidden'}
+          style={{ height: '100%' }}
+        >
+          <FilterSidebar
+            filters={filters}
+            onChange={(f) => {
+              setFilters(f);
+              // Auto-close sidebar on mobile after a filter change
+              if (window.innerWidth < 768) setSidebarOpen(false);
+            }}
+            availableTags={availableTags}
+          />
         </div>
+      </div>
+
+      {/* ── Main content ───────────────────────────────────────────────────── */}
+      <main
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20,
+          minWidth: 0,
+        }}
+      >
+        {/* Mobile: filter toggle button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="Toggle filters"
+          >
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <line x1="1" y1="3" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="3" y1="6.5" x2="10" y2="6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="5" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Filters
+          </button>
+        </div>
+
+        {/* KPI row — 4-across desktop, 2×2 mobile */}
+        <div className="kpi-grid">
+          {loading ? (
+            <KpiSkeleton />
+          ) : (
+            <>
+              <KpiCard label="Total Signals"    value={kpi.total}               icon={<IconSignals />}   delay={0}   />
+              <KpiCard label="Hot Leads"        value={kpi.hotLeads}            icon={<IconHot />}       delay={100} />
+              <KpiCard label="Avg Intent Score" value={kpi.avgScore.toFixed(1)} icon={<IconScore />}     delay={200} />
+              <KpiCard label="Companies"        value={kpi.companies}           icon={<IconCompanies />} delay={300} />
+            </>
+          )}
+        </div>
+
+        {/* Error banner */}
+        {fetchError && (
+          <ErrorBanner message={fetchError} onRetry={() => fetchSignals(filters)} />
+        )}
+
+        {/* Leads table */}
+        <LeadsTable signals={signals} loading={loading} onReset={handleReset} />
+
+        {/* Trend chart */}
+        <TrendChart data={trendData} />
       </main>
     </div>
   );
