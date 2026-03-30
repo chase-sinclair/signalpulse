@@ -1,5 +1,5 @@
 # CLAUDE.md — SignalPulse AI
-> Version 1.6 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
+> Version 1.7 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
 > This file is the single source of truth for this project. Claude Code reads it automatically at the start of every session.
 
 ---
@@ -1156,7 +1156,30 @@ When Claude Code generates `README.md`, use this exact intro paragraph:
 
 ---
 
-### [2026-03-30] — Phases 4a through 7 Complete: Full Frontend + Deployment — Completed by: 🤖 Claude Code
+### [2026-03-30] — n8n Workflow Fixes Complete — Completed by: 👤 Human
+
+**What was fixed:**
+- **Bridge Node:** Replaced `{{ $('Create a row').item.json.id }}` with a new `Get a row` node that looks up the signal UUID by `external_job_id`. This fixes `signal_id = null` on tag insertion for duplicate signals.
+- **OpenAI prompt:** Added instruction to infer software from job title even when not explicitly listed in description body. Tags now correctly extract NetSuite, SAP, Workday from job titles.
+- **Workflow order:** `Create a row` → `Get a row` (lookup by external_job_id) → `Map Tags to Job ID` → `Split Tech Stack Tags` → `Insert Tags to DB`
+
+**Verified working:**
+```
+Crowe LLP             | NetSuite Implementation Manager                      | ["NetSuite"]
+Element Solutions Inc | Americas Controller — Finance Automation Leader      | ["NetSuite"]
+EY                    | Finance Automation and Tech Implementation Manager   | ["ADP","Concur","Coupa","NetSuite","Workday"]
+GE Vernova            | NAM CFO - Grid Automation                            | ["Oracle"]
+PwC                   | NetSuite Product Implementation Consultant - Manager | ["BlackLine","OneStream RCM","Oracle ARCS","Tagetik","Trintech"]
+```
+
+**Remaining items:**
+- Company upsert node still missing — `company_id` null on all signals — fix on DigitalOcean
+- DigitalOcean deployment pending — n8n running locally only
+- Companies page will populate once company upsert is fixed and snapshot workflow runs
+
+**Next step:**
+- Project is complete for portfolio — dashboard live at https://signalpulse-six.vercel.app
+- When ready: set up DigitalOcean, add Postgres upsert node for companies table, workflow runs automatically at 6 AM daily
 
 **What was built:**
 - `lib/types.ts` — all interfaces written from live data sample, `posted_at` as string, `is_hot_lead` threshold >= 9
