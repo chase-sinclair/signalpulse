@@ -1,5 +1,5 @@
 # CLAUDE.md — SignalPulse AI
-> Version 1.5 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
+> Version 1.6 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
 > This file is the single source of truth for this project. Claude Code reads it automatically at the start of every session.
 
 ---
@@ -291,7 +291,7 @@ CREATE TABLE job_signals (
     intent_score     INT CHECK (intent_score BETWEEN 1 AND 10),
     sales_hook       TEXT,
     is_hot_lead      BOOLEAN DEFAULT FALSE,
-    posted_at        TEXT,
+    posted_at        TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -435,7 +435,7 @@ export interface JobSignal {
   intent_score: number | null;
   sales_hook: string | null;
   is_hot_lead: boolean;
-  posted_at: string | null;   // TEXT in DB — SerpApi relative strings e.g. "4 days ago"
+  posted_at: string | null;
   created_at: string;
 }
 
@@ -662,11 +662,11 @@ Props: `{ data: { family: string; count: number }[] }`
 - Must handle empty data state: render "No data yet" message, not a broken chart
 
 #### `FilterSidebar.tsx`
-Props: `{ filters: DashboardFilters; onChange: (f: DashboardFilters) => void; availableTags: string[] }`
+Props: `{ filters: DashboardFilters; onChange: (f: DashboardFilters) => void }`
 - Search input: debounced 300ms via `useEffect` + `setTimeout`
 - Job Family: checkbox group (all 6 families)
 - Intent Score: range slider, min 1, default 7
-- Tags: pill multi-select — data-driven from `availableTags` prop (pulled from DB, not hardcoded)
+- Tags: pill multi-select for the 12 key tags defined in seed data
 - "Hot Leads Only": toggle switch
 - "Reset Filters": button that restores all defaults
 - Width: 280px fixed, scrollable if content overflows
@@ -685,7 +685,7 @@ Columns (in order):
 | 5 | Tech Stack | Tag chips | Show max 3, then "+N more" chip |
 | 6 | Intent | `IntentScoreBadge` | — |
 | 7 | Sales Hook | Truncated to 80 chars | Full text on row hover via CSS tooltip |
-| 8 | Posted | `posted_at` text as-is | Display raw string from DB e.g. "4 days ago" |
+| 8 | Posted | Relative time | "2 days ago", "3 hours ago" — implement in `lib/utils.ts` |
 
 - Sortable by Intent Score (default: desc) and Posted date
 - Client-side sort via `useState` — no re-fetch on sort
@@ -1096,13 +1096,13 @@ The sequence below matches the agent's project guide exactly. Note that n8n (pre
 | Phase 1 | Supabase Schema + Seed | 👤 Human | Schema + view live in Supabase; `SELECT * FROM signals_with_tags LIMIT 1` returns a valid row | ✅ |
 | Phase 2 | n8n Workflow | 👤 Human | 16-node daily scraper built manually; weekly snapshot workflow built; one hot lead confirmed in DB | ✅ |
 | Phase 3 | Handoff | 👤 Human → 🤖 Claude Code | Human provides all 3 items from Section 0.8; Claude confirms receipt before proceeding | ✅ |
-| Phase 4a | Types + Supabase Client | 🤖 Claude Code | `lib/types.ts`, `lib/supabase.ts`, `lib/utils.ts` — written from live data sample, not assumed schema | ☐ |
-| Phase 4b | API Route | 🤖 Claude Code | `app/api/signals/route.ts` tested with curl against live Supabase, returns real rows | ☐ |
-| Phase 5a | UI Components | 🤖 Claude Code | All 6 components render correctly with live seed data; all states verified | ☐ |
-| Phase 5b | Dashboard Pages | 🤖 Claude Code | Both pages wired to live API; all filters working end-to-end | ☐ |
-| Phase 6a | Docker + n8n Deploy | 👤 Human | DigitalOcean Droplet running; `setup.sh` executed; n8n accessible at public URL | ☐ |
-| Phase 6b | Vercel Deploy + README | 🤖 Claude Code | Next.js live on Vercel; `README.md` generated with recruiter narrative | ☐ |
-| Phase 7 | Polish | 🤖 Claude Code | Loading states, error boundaries, empty states, mobile responsiveness | ☐ |
+| Phase 4a | Types + Supabase Client | 🤖 Claude Code | `lib/types.ts`, `lib/supabase.ts`, `lib/utils.ts` — written from live data sample, not assumed schema | ✅ |
+| Phase 4b | API Route | 🤖 Claude Code | `app/api/signals/route.ts` tested with curl against live Supabase, returns real rows | ✅ |
+| Phase 5a | UI Components | 🤖 Claude Code | All 6 components render correctly with live seed data; all states verified | ✅ |
+| Phase 5b | Dashboard Pages | 🤖 Claude Code | Both pages wired to live API; all filters working end-to-end | ✅ |
+| Phase 6a | Docker + n8n Deploy | 👤 Human | DigitalOcean Droplet running; `setup.sh` executed; n8n accessible at public URL | ⬜ Pending |
+| Phase 6b | Vercel Deploy + README | 🤖 Claude Code | Next.js live on Vercel; `README.md` generated with recruiter narrative | ✅ |
+| Phase 7 | Polish | 🤖 Claude Code | Loading states, error boundaries, empty states, mobile responsiveness | ✅ |
 
 **For human-owned phases:** Use the relevant sections of this file as your blueprint. Section 4 for Supabase. Section 10 for n8n. Ask Claude Code for debugging help freely — just don't ask it to build the phase wholesale.
 
@@ -1156,7 +1156,40 @@ When Claude Code generates `README.md`, use this exact intro paragraph:
 
 ---
 
-### [2026-03-27] — Phases 1, 2 & 3 Complete: Supabase + n8n + Handoff — Completed by: 👤 Human
+### [2026-03-30] — Phases 4a through 7 Complete: Full Frontend + Deployment — Completed by: 🤖 Claude Code
+
+**What was built:**
+- `lib/types.ts` — all interfaces written from live data sample, `posted_at` as string, `is_hot_lead` threshold >= 9
+- `lib/supabase.ts` — browser, server, and admin clients
+- `lib/utils.ts` — relativeTime, truncate, companyInitials, mean, formatDelta
+- `app/api/signals/route.ts` — filtered server-side query via Supabase SSR client
+- `app/api/tags/route.ts` — distinct tags from signal_tags, data-driven
+- 6 UI components: IntentScoreBadge, WeeklyDeltaBadge, KpiCard, TrendChart, FilterSidebar, LeadsTable
+- Main dashboard page — KPI row, filter sidebar, leads table, trend chart
+- Companies page — weekly delta cards with empty state
+- Error boundary, custom 404, mobile responsive sidebar
+- `docker/docker-compose.yml`, `docker/setup.sh`, `README.md`, `vercel.json`
+
+**Live URLs:**
+- Production dashboard: https://signalpulse-six.vercel.app
+- GitHub repo: https://github.com/chase-sinclair/signalpulse
+
+**Known issues resolved during deployment:**
+- `vercel.json` had `@secret` references generated by Claude Code — removed env section entirely
+- Vercel UI secret-linking bug — worked around using Vercel CLI
+- `CLAUDE.md` overwritten by `create-next-app` — restored from session context
+- `company_id` null on all signals — backfill SQL run, Postgres node not yet added to n8n workflow (Windows Docker IPv6 networking blocked local testing)
+- `signal_tags` signal_id null — Bridge Node expression needs updating to `{{ $('Create a row').item.json.id }}`
+
+**Remaining items (not blockers for portfolio):**
+- Phase 6a: DigitalOcean Droplet for always-on n8n — not yet deployed
+- n8n Postgres node for company upsert — will work cleanly on Linux (DigitalOcean)
+- Companies page will populate automatically once n8n runs on DigitalOcean with fixed workflow
+- Weekly snapshot will self-populate every Sunday once pipeline is live
+
+**Next step:**
+- Project is complete for portfolio purposes — dashboard is live at https://signalpulse-six.vercel.app
+- When ready to finalize: set up DigitalOcean Droplet, run `docker/setup.sh`, fix Bridge Node expression in n8n, add Postgres upsert node for companies table
 
 **What was built:**
 - Supabase project live at `https://qolusthqrhcontdvfvyx.supabase.co`
@@ -1223,165 +1256,4 @@ Aqua Finance           | Manager, Process & Automation Strategy          | 7  | 
 - Claude Code owns Phase 4a — scaffold Next.js project with `npx create-next-app@latest`, then prompt user to create `.env.local` with all three env vars, then write `lib/types.ts`, `lib/supabase.ts`, `lib/utils.ts` from the verified live data shape above
 
 ---
-
-### [2026-03-27] — Phases 4a & 4b Complete: Types + Supabase Client + API Route — Completed by: 🤖 Claude Code
-
-**What was built:**
-- `lib/types.ts` — all interfaces matching live schema; `posted_at: string | null` (TEXT), `tech_stack: string[]`
-- `lib/supabase.ts` — async `createSupabaseServer()` using `getAll`/`setAll` cookie API for Next.js 16 compatibility; `supabaseBrowser` and `createSupabaseAdmin()` also exported
-- `lib/utils.ts` — `relativeTime`, `formatDate`, `truncate`, `companyInitials`, `mean`, `formatDelta`
-- `app/api/signals/route.ts` — GET handler with `min_score`, `family`, `hot`, `search`, `tag` filters; JS-side tag post-filter
-- `.gitignore` — excludes `.env`, `.env.local`, `node_modules`, `.next`
-- `.env.local.example` — template with all three required vars
-
-**Key decisions made:**
-- `createSupabaseServer()` is now `async` — Next.js 16 requires `await cookies()`; `@supabase/ssr` 0.9.0 uses `getAll`/`setAll` (not the old `get`/`set`/`remove`)
-- CLAUDE.md was overwritten by `create-next-app` (it generated `AGENTS.md` and replaced CLAUDE.md with `@AGENTS.md`); fully restored from session context
-- `AGENTS.md` left in place (harmless Next.js agent hint file added by scaffolder)
-
-**Verified against live Supabase:**
-- `GET /api/signals?min_score=1` → 13 signals, status 200
-- `GET /api/signals?hot=true` → 12 hot leads
-- `GET /api/signals?tag=NetSuite` → 7 signals
-- `GET /api/signals?family=Finance` → 13 signals
-- `tech_stack` confirmed as proper JS array (not stringified); `posted_at` nullable TEXT confirmed
-
-**Next step:**
-- Claude Code owns Phase 5a — build all 6 UI components: `KpiCard`, `IntentScoreBadge`, `WeeklyDeltaBadge`, `TrendChart`, `FilterSidebar`, `LeadsTable`
-
----
-
-### [2026-03-27] — Phase 5a Complete: UI Components — Completed by: 🤖 Claude Code
-
-**What was built:**
-- `components/IntentScoreBadge.tsx` — score pill, green/amber/red per threshold, DM Mono font, null-safe
-- `components/WeeklyDeltaBadge.tsx` — `+3 ↑` / `-2 ↓` / `—`, inline text only, no background
-- `components/KpiCard.tsx` — stat card with staggered `opacity`+`translateY` mount animation via `useEffect`
-- `components/TrendChart.tsx` — Recharts BarChart with per-family colors, empty-data guard, no legend (bar labels instead)
-- `components/FilterSidebar.tsx` — search (debounced 300ms), hot-leads toggle, intent score slider, family checkboxes, data-driven tag pills; exports `DEFAULT_FILTERS` constant
-- `components/LeadsTable.tsx` — full table with 8 columns, client-side sort by intent/date, skeleton rows, empty state, CSS tooltip on sales hook, hot-lead amber dot
-- `app/globals.css` — SignalPulse design tokens (CSS vars), dot-grid background, custom scrollbar, range input, tooltip CSS
-- `app/layout.tsx` — DM Mono font added, metadata updated
-
-**Key decisions made:**
-- `FilterSidebar` accepts `availableTags: string[]` as a prop — the parent page (Phase 5b) is responsible for fetching and providing the tag list
-- `FilterSidebar` exports `DEFAULT_FILTERS` so the dashboard page can use it for the reset handler
-- Company domain is not on `JobSignal` (it's on `Company`), so all company avatars use the `companyInitials()` fallback
-- `posted_at` displayed as raw TEXT from DB (e.g. "7 days ago") — no date parsing
-- Skeleton pulse animation injected via `<style>` tag inside LeadsTable to avoid a separate CSS file
-- Used CSS custom properties (`var(--bg-base)` etc.) with inline styles throughout — avoids Tailwind v4 `@theme` complexity for custom colors
-
-**Verified:**
-- All 6 components: `tsc --noEmit` → zero errors each
-- Full `npm run build` → zero errors
-
-**Next step:**
-- Claude Code owns Phase 5b — wire all components into the two dashboard pages:
-  - `app/(dashboard)/layout.tsx` — dashboard shell with sidebar + header
-  - `app/(dashboard)/page.tsx` — main leads view (KPI row + FilterSidebar + LeadsTable + TrendChart)
-  - `app/(dashboard)/companies/page.tsx` — company trend view (WeeklyDeltaBadge cards)
-  - `app/api/tags/route.ts` — endpoint returning distinct tags from `signal_tags` table (feeds FilterSidebar)
-
----
-
-### [2026-03-27] — Phase 5b Complete: Dashboard Pages — Completed by: 🤖 Claude Code
-
-**What was built:**
-- `app/api/tags/route.ts` — returns distinct sorted tags from `signal_tags` table; deduplicates in JS
-- `components/NavLinks.tsx` — client component using `usePathname()` for active link styling
-- `app/layout.tsx` — updated with sticky header (SignalPulse pulse-line logo, title, `NavLinks`), DM Mono font
-- `app/page.tsx` — full client component: `DashboardFilters` state, fetch on filter change, KPI row (4 cards with inline SVG icons), `FilterSidebar`, `LeadsTable`, `TrendChart`; tag list fetched once on mount from `/api/tags`
-- `app/companies/page.tsx` — async server component; fetches `weekly_snapshots` joined with `companies`, groups by company, computes delta, renders 3-col responsive card grid with `WeeklyDeltaBadge`; shows explicit empty state when no snapshots exist yet
-
-**Key decisions made:**
-- Skipped `app/(dashboard)/` route group — placing dashboard at `app/page.tsx` + `app/companies/page.tsx` avoids the Next.js conflict with the scaffolded `app/page.tsx`
-- Supabase join returns companies as array type without generated types — cast via `unknown` to match the `Company | null` runtime shape
-- `availableTags` fetched from `/api/tags` (not from the filtered signals response) so tag pills remain stable regardless of active filters
-- Companies page shows "No weekly snapshots yet" empty state — n8n snapshot workflow runs Sundays at 23:00 and the first run hasn't happened yet
-
-**Verified against live Supabase:**
-- `GET /` → HTTP 200, HTML includes "SignalPulse AI", "Total Signals", "Hot Leads", "Companies"
-- `GET /companies` → HTTP 200, HTML includes "Company Trends", "No weekly snapshots yet"
-- `GET /api/tags` → 10 distinct tags (Avalara, Celigo, Epicor, Infor, Microsoft Dynamics, NetSuite, Oracle + 3 more)
-- `GET /api/signals?min_score=1` → 13 signals, 12 hot leads, 10 companies, all Finance family
-- `npm run build` → zero errors, 5 routes registered
-
-**Final route table:**
-- `○ /` — dashboard (static shell, dynamic data via client fetch)
-- `ƒ /api/signals` — dynamic
-- `ƒ /api/tags` — dynamic
-- `ƒ /companies` — dynamic (server component fetches Supabase on request)
-
-**Next step:**
-- Human owns Phase 6a — deploy n8n to DigitalOcean using `docker/setup.sh`
-- Claude Code owns Phase 6b — Vercel deploy + `README.md` with recruiter narrative
-- Claude Code owns Phase 7 — Polish (loading states, error boundaries, mobile responsiveness)
-- Before Phase 7: consider adding the `supabase/schema.sql` and `supabase/seed.sql` files to the repo for completeness
-
----
-
-### [2026-03-27] — Phases 6a & 6b Complete: Docker + README + Vercel — Completed by: 🤖 Claude Code
-
-**What was built:**
-- `docker/docker-compose.yml` — n8n service with all env vars, named volume `n8n_data`, workflow mount, `restart: unless-stopped`
-- `docker/.env.example` — template with `SUPABASE_URL` pre-filled to the live project URL; all secrets left as placeholders
-- `docker/setup.sh` — Ubuntu 22.04 bootstrap script: installs docker.io + docker-compose, clones repo, copies `.env.example → .env`, pauses for user to fill in secrets (interactive `read` prompt), starts n8n via `docker-compose up -d`, performs health check against `/healthz`, prints the n8n URL and next-step instructions
-- `README.md` — recruiter-facing narrative using exact Section 15 intro paragraph; includes architecture diagram, stack table, technical highlights (Supabase, n8n, Next.js, SerpApi credit budget), local setup, n8n deployment, Vercel deployment, schema table, project status checklist
-- `vercel.json` — explicit framework declaration, build/dev/install commands, env var references using Vercel secret names
-
-**Key decisions made:**
-- `setup.sh` uses an interactive `read` prompt (rather than a `sleep`) to pause between `.env` copy and `docker-compose up` — forces the user to fill in secrets before the container starts; cleaner than comments alone
-- `vercel.json` references env vars with `@secret_name` format (Vercel's secret syntax) — this is documentation of which secrets to add in the dashboard, not actual secret values
-- `SUPABASE_URL` pre-filled in `docker/.env.example` to the confirmed project URL (`qolusthqrhcontdvfvyx.supabase.co`) so the user doesn't need to look it up
-- `setup.sh` includes `REPO_URL` placeholder for the GitHub URL — user must update this before running
-- README status table shows both Docker and Vercel phases as "In progress" so recruiters see live work, not abandoned placeholders
-
-**What the human needs to do for Phase 6a:**
-1. Push code to GitHub (update `REPO_URL` in `docker/setup.sh` to match)
-2. Create a DigitalOcean Droplet (Ubuntu 22.04, $6/mo Basic)
-3. SSH in and run: `bash <(curl -s https://raw.githubusercontent.com/YOUR_USERNAME/signalpulse/main/docker/setup.sh)`
-4. Fill in secrets when prompted
-5. Import n8n workflow JSONs from the n8n UI
-6. Activate both workflows and do one manual test run
-
-**What the human needs to do for Phase 6b (Vercel):**
-1. Import repo at vercel.com
-2. Add 3 env vars in Vercel dashboard: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-3. Deploy
-
-**npm run build:** Zero errors — same 5-route output as before.
-
-**Next step:**
-- Claude Code owns Phase 7 — Polish: loading states, error boundaries, mobile responsiveness, empty states
-- Human owns Phase 6a execution (running setup.sh on DigitalOcean) and Vercel deploy
-
----
-
-### [2026-03-27] — Phase 7 Complete: Polish — Completed by: 🤖 Claude Code
-
-**What was built / changed:**
-- `app/globals.css` — added `.kpi-grid` (4-across → 2×2 wrap at 768px), `.sidebar-toggle` (hidden on desktop, flex on mobile), `.mobile-overlay` (backdrop for mobile sidebar), `.sidebar-visible`/`.sidebar-hidden` (desktop always overrides to visible), `.header-subtitle` (hidden below 768px)
-- `app/page.tsx` — added `fetchError` state with `ErrorBanner` component (red banner + Retry button); added `KpiSkeleton` (4 pulsing placeholder cards while loading, replaces showing `0`/`0.0`); added `sidebarOpen` state defaulting to `false` on mobile (detected via `window.innerWidth < 768` on mount); added mobile overlay div + sidebar-toggle button; auto-closes sidebar on mobile after filter change
-- `app/layout.tsx` — added `header-subtitle` class to subtitle span so it hides on mobile
-- `app/error.tsx` — Next.js error boundary (`'use client'`); shows error digest code, "Try again" button calls `reset()`
-- `app/not-found.tsx` — custom 404 page matching design system; "Back to dashboard" link
-- `README.md` — fixed "Next.js 14" → "Next.js 16" in intro paragraph (matched stack table)
-
-**Key decisions made:**
-- Mobile sidebar implemented via CSS classes (`sidebar-visible`/`sidebar-hidden`) with a `@media (min-width: 769px)` override that forces `display: block !important` on desktop — avoids React state from accidentally hiding the sidebar on desktop after a resize
-- KpiSkeleton renders 4 individual skeleton cards (not one big placeholder) so the layout doesn't shift when real cards appear
-- Error state is separate from loading state — `fetchError` is null on success/loading, set to message string on failure; retry calls `fetchSignals(filters)` directly
-
-**Verified:**
-- `tsc --noEmit` → zero errors
-- `npm run build` → zero errors, same 5-route output
-
-**Phase 7 complete. All phases Claude Code owns are now done.**
-
-**Remaining human tasks:**
-- Phase 6a: Run `docker/setup.sh` on DigitalOcean Droplet; import n8n workflows; activate and test
-- Phase 6b: Push to GitHub; import repo in Vercel; add 3 env vars; deploy
-- Update `REPO_URL` in `docker/setup.sh` to the actual GitHub repo URL before running
-
----
-*End of CLAUDE.md — SignalPulse AI v1.5*
+*End of CLAUDE.md — SignalPulse AI v1.3*
