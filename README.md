@@ -1,3 +1,5 @@
+# **Live demo:** https://signalpulse-six.vercel.app
+
 # SignalPulse AI — B2B Sales Intelligence Engine
 
 > SignalPulse AI monitors corporate job postings daily and uses AI to identify "buying window" signals — moments when a company's hiring patterns reveal they are about to invest in new software. A company posting "NetSuite Implementation Manager" is telling Ramp, Brex, and Stripe: come talk to us now. Built as a full-stack data engineering portfolio project: automated ingestion via n8n, structured enrichment via GPT-4o-mini, PostgreSQL storage in Supabase, and a production-grade Next.js 16 dashboard.
