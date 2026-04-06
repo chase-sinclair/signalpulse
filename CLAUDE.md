@@ -1,5 +1,5 @@
 # CLAUDE.md — SignalPulse AI
-> Version 1.7 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
+> Version 1.8 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
 > This file is the single source of truth for this project. Claude Code reads it automatically at the start of every session.
 
 ---
@@ -1156,7 +1156,116 @@ When Claude Code generates `README.md`, use this exact intro paragraph:
 
 ---
 
-### [2026-03-30] — n8n Workflow Fixes Complete — Completed by: 👤 Human
+### [2026-04-06] — Full Deployment Complete + Feature Roadmap — Completed by: 👤 Human + 🤖 Claude Code
+
+**Current State — Everything Live:**
+- Dashboard: https://signalpulse-six.vercel.app
+- GitHub: https://github.com/chase-sinclair/signalpulse
+- n8n (DigitalOcean): http://159.89.185.13:5678
+- Supabase: https://qolusthqrhcontdvfvyx.supabase.co
+
+**DigitalOcean Droplet:**
+- IP: `159.89.185.13`
+- OS: Ubuntu 22.04 LTS
+- Size: $6/mo (1GB RAM / 1 CPU / NYC3)
+- n8n running via Docker Compose at `/opt/signalpulse/docker/`
+- Both workflows published and active
+
+**n8n Workflows (DO instance):**
+
+Workflow 1: `SignalPulse AI` (daily scraper)
+- 3 SerpApi queries: CFO_Signal, ERP_Signal, Payroll_Signal
+- Smart Filter drops recruiters + stale postings
+- OpenAI gpt-4o-mini extracts job_family, tech_stack, intent_score, sales_hook
+- Prompt includes job title inference rule (tags NetSuite from title even if not in description body)
+- Postgres node (Session pooler) upserts companies before job_signals
+- Get a row node fetches signal UUID after Create a row (Bridge Node fix)
+- Map Tags to Job ID passes: tech_stack, id (signal UUID), company_id (company UUID)
+- Insert Tags to DB upserts signal_tags
+- Schedule: 6 AM daily
+
+Workflow 2: `signalpulse_snapshots`
+- Schedule: Sunday 23:00 (`0 23 * * 0`)
+- HTTP Request POST to Supabase RPC `refresh_weekly_snapshots`
+- Authentication: Predefined Supabase credential
+
+**n8n Credentials (DO instance):**
+- SerpApi: Header Auth (All HTTP requests)
+- OpenAI: OpenAI API credential
+- Supabase: Supabase API credential (for Supabase nodes)
+- Postgres account: Session pooler connection
+  - Host: `aws-0-us-east-1.pooler.supabase.com`
+  - Port: `5432`
+  - User: `postgres.qolusthqrhcontdvfvyx`
+  - Database: `postgres`
+  - NOTE: Use Session pooler (NOT Transaction pooler, NOT Direct connection) — IPv6 issue affects both other methods from DigitalOcean
+
+**Current Database State:**
+- 37 job signals
+- 46 companies
+- 37 signals with company_id populated
+- weekly_snapshots populated for week of 2026-03-23
+- signal_tags populated with real tool names (NetSuite, Oracle, SAP, Workday, etc.)
+
+**Known Issues / Watch Out For:**
+- Local n8n (Windows Docker) kept as backup but workflow may be lost — use DO instance as primary
+- `N8N_SECURE_COOKIE=false` must be in docker-compose.yml environment section (not just .env) for local access via HTTP
+- The `refresh_weekly_snapshots` stored procedure uses `v_week_start` variable name (not `week_start`) to avoid SQL ambiguity — do not revert this
+- Companies page only shows delta when there are 2+ weeks of snapshot data — currently only 1 week populated
+
+**Supabase Schema Modifications (from original Section 4):**
+- `posted_at` is TEXT (not TIMESTAMPTZ) — SerpApi returns relative strings
+- `is_hot_lead` threshold is >= 9 (not >= 8)
+- `signals_with_tags` view uses explicit array_agg with CASCADE
+- `refresh_weekly_snapshots` function uses `v_week_start` variable
+
+---
+
+**NEXT PHASE: Feature Development**
+
+The following features have been planned. A new Claude Code session should pick up from here.
+
+**Priority 1 — Signal Categories (High Impact, Low Effort)**
+Add 5 new SerpApi query categories to the Code in JavaScript node:
+- ERP Migration: `NetSuite OR "Sage Intacct" implementation`
+- Payroll Scaling: `HRIS OR Payroll "implementation manager"`
+- Data Stack: `Snowflake OR dbt OR "data warehouse" engineer`
+- Security Scaling: `CISO OR "SOC 2" OR Okta implementation`
+- Sales Infrastructure: `Salesforce OR HubSpot implementation`
+- Cloud Migration: `AWS OR Azure "migration architect"`
+
+This fixes the single-bar TrendChart and makes the product multi-vertical.
+
+**Priority 2 — Explainable Scoring (High Resume Value)**
+Replace the single `intent_score` with a scoring breakdown object. Each signal should have:
+- `score_components` JSONB column in job_signals
+- Breakdown: title_match (0-3), tech_stack_match (0-3), seniority_signal (0-2), urgency_signal (0-2)
+- Dashboard shows expandable scoring breakdown per lead
+- Highlights "feature engineering" for data/RevOps resume targeting
+
+**Priority 3 — Market Intelligence Tab**
+New page at `/intelligence`:
+- Which industries are seeing most ERP migrations this week
+- Which tech tools are most frequently appearing in signals
+- Hiring velocity chart: companies posting multiple signals in short windows
+- Powered by existing data — pure frontend + SQL aggregation work
+
+**Priority 4 — Visualization Improvements**
+- Sparkline per company card showing last 4 weeks of signal count
+- Hiring velocity alert: badge when company posts 3+ signals in 7 days
+- Better empty states and loading animations
+
+**Priority 5 — Slack/Email Alerts**
+- n8n node after Insert Tags: if is_hot_lead = true, send Slack message
+- Easy to add, makes product feel like real sales tool
+
+**Priority 6 — Company Enrichment**
+- When company inserted, call Clearbit free tier for firmographics
+- Add employee_count, funding_stage, industry to companies table
+- Enables filter: "Series B, 50-200 employees" — real sales qualification
+
+**Next step for new Claude Code session:**
+Begin Priority 1 (Signal Categories) — update the Code in JavaScript node in DO n8n to add 5 new queries, update the job_family CHECK constraint to include new categories, verify TrendChart renders multiple bars.
 
 **What was fixed:**
 - **Bridge Node:** Replaced `{{ $('Create a row').item.json.id }}` with a new `Get a row` node that looks up the signal UUID by `external_job_id`. This fixes `signal_id = null` on tag insertion for duplicate signals.
