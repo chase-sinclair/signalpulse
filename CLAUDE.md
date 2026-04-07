@@ -1155,6 +1155,53 @@ When Claude Code generates `README.md`, use this exact intro paragraph:
 > Human-owned phases should also be logged here when complete, either by Claude Code (after receiving handoff items) or by the human directly.
 
 ---
+### [2026-04-08] — Signal Categories + Pipeline Fixes — Completed by: 👤 Human + 🤖 Claude Code
+
+**What was built:**
+- Added 8 new search queries to `Code in JavaScript` node covering Sales, Security, Operations, and Infrastructure families
+- Updated OpenAI system prompt to be multi-vertical (removed ERP/Payroll specificity)
+- Updated OpenAI user prompt to return `job_family` as part of JSON output
+- Updated `Edit Fields` node to read `job_family` dynamically from OpenAI output instead of hardcoded "Finance"
+- Added `date_posted:today` chips filter to SerpApi node
+- Replaced `dbt analytics engineer` query with `Databricks data engineer` (zero results fix)
+
+**Key fixes made:**
+- `external_job_id` null constraint: added title+company_name fallback expression in `Edit Fields`
+- `job_family` CHECK constraint violation: OpenAI was returning pipe-separated values ("Finance | Operations") — fixed via prompt update forcing single value
+- `job_family` capitalization: added `.charAt(0).toUpperCase()` expression in `Edit Fields`
+- `Map Tags to Job ID` company_id: was referencing dead node `$('Postgres')` — fixed to `$('Get a row').item.json.company_id`
+- `Create a row` context loss: all field expressions updated to `$node["Edit Fields"].json.*`
+
+**Current query set (Code in JavaScript node):**
+- NetSuite Implementation Manager (Finance)
+- Head of Finance automation (Finance)
+- ERP Project Manager (Finance)
+- Business Systems Analyst NetSuite (Finance)
+- Snowflake data engineer implementation (Infrastructure)
+- Databricks data engineer (Infrastructure)
+- Okta implementation engineer (Security)
+- CrowdStrike deployment administrator (Security)
+- Salesforce implementation administrator (Sales)
+- HubSpot CRM implementation (Sales)
+- Workday implementation consultant (Operations)
+- Rippling HRIS implementation (Operations)
+
+**Current database state:**
+- 66 total signals
+- Finance: 42, Sales: 11, Operations: 10, Security: 2, Other: 1
+- Infrastructure: 0 (Snowflake/Databricks queries not yet returning fresh results)
+- Tags missing on some rows inserted before Map Tags fix — self-correcting going forward
+
+**Known issues:**
+- Some rows have no tags due to the `Postgres` node reference bug that existed before fix
+- Infrastructure family not yet populating — Snowflake/Databricks queries may need refinement
+- Companies page all Finance until non-Finance data accumulates over coming days
+- `dbt analytics engineer` query returns 0 SerpApi results — replaced with Databricks
+
+**Next step:**
+- Let pipeline accumulate data for several days
+- Begin Priority 2: Explainable Scoring OR Priority 3: Market Intelligence Tab
+
 
 ### [2026-04-06] — Full Deployment Complete + Feature Roadmap — Completed by: 👤 Human + 🤖 Claude Code
 
