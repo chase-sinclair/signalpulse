@@ -115,8 +115,8 @@ signalpulse/
 
 ```env
 # .env.local (Next.js)
-NEXT_PUBLIC_SUPABASE_URL=https://qolusthqrhcontdvfvyx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvbHVzdGhxcmhjb250ZHZmdnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NTQ3NDgsImV4cCI6MjA5MDEzMDc0OH0.ioN5BnJVn_NWl8Y9xfL1WX3KHi93CP6B-A8261tDVZ0
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 SUPABASE_SERVICE_ROLE_KEY=[in .env.local — never commit]
 ```
 
