@@ -181,10 +181,10 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
           overflow: 'hidden',
         }}
       >
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
-              <tr style={{ background: 'var(--bg-elevated)' }}>
+              <tr style={{ background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 2 }}>
                 {/* Hot lead indicator */}
                 <th style={{ ...thStyle, width: 28, textAlign: 'center' }}>🔥</th>
                 {/* Company */}
