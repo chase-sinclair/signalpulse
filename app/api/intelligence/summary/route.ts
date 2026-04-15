@@ -18,10 +18,10 @@ export async function GET() {
       return NextResponse.json({ error: familyError.message }, { status: 500 });
     }
 
-    // Fetch all tags for ranking
+    // Fetch tags joined with company info — needed for signal count AND distinct company count
     const { data: tagRows, error: tagError } = await supabase
       .from('signal_tags')
-      .select('tag');
+      .select('tag, job_signals(company_name)');
 
     if (tagError) {
       console.error('[intelligence/summary] tag query error:', tagError.message);
@@ -39,15 +39,18 @@ export async function GET() {
       .map(([family, count]) => ({ family, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Aggregate top 10 tags — matches Section 16 SQL exactly
-    const tagCounts: Record<string, number> = {};
+    // Aggregate top 10 tags with mention count + distinct company count
+    const tagStats: Record<string, { mentions: number; companies: Set<string> }> = {};
     for (const row of tagRows ?? []) {
-      if (row.tag) {
-        tagCounts[row.tag] = (tagCounts[row.tag] ?? 0) + 1;
-      }
+      if (!row.tag) continue;
+      if (!tagStats[row.tag]) tagStats[row.tag] = { mentions: 0, companies: new Set() };
+      tagStats[row.tag].mentions += 1;
+      // job_signals is an object (FK relation), not an array
+      const companyName = (row.job_signals as { company_name: string } | null)?.company_name;
+      if (companyName) tagStats[row.tag].companies.add(companyName);
     }
-    const topTags = Object.entries(tagCounts)
-      .map(([tag, mentions]) => ({ tag, mentions }))
+    const topTags = Object.entries(tagStats)
+      .map(([tag, s]) => ({ tag, mentions: s.mentions, companies: s.companies.size }))
       .sort((a, b) => b.mentions - a.mentions)
       .slice(0, 10);
 

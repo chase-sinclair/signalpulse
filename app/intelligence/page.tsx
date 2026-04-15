@@ -16,7 +16,7 @@ interface SummaryData {
     hottestSector: string | null;
   };
   familyBreakdown: { family: string; count: number }[];
-  topTags: { tag: string; mentions: number }[];
+  topTags: { tag: string; mentions: number; companies: number }[];
 }
 
 interface VelocityData {
@@ -76,7 +76,7 @@ function Skeleton({ width = '100%', height = 16 }: { width?: string | number; he
 }
 
 // ── Top Tools ranked list ──────────────────────────────────────────────────────
-function TopToolsList({ tags, loading }: { tags: { tag: string; mentions: number }[]; loading: boolean }) {
+function TopToolsList({ tags, loading }: { tags: { tag: string; mentions: number; companies: number }[]; loading: boolean }) {
   const maxMentions = tags[0]?.mentions ?? 1;
 
   return (
@@ -167,19 +167,29 @@ function TopToolsList({ tags, loading }: { tags: { tag: string; mentions: number
                   }}
                 />
               </div>
-              {/* Count */}
-              <span
-                style={{
-                  fontFamily: 'var(--font-dm-mono), monospace',
-                  fontSize: 11,
-                  color: 'var(--text-secondary)',
-                  flexShrink: 0,
-                  width: 20,
-                  textAlign: 'right',
-                }}
-              >
-                {t.mentions}
-              </span>
+              {/* Count + company breadth */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, gap: 1 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 11,
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  {t.mentions}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 9,
+                    color: 'var(--text-muted)',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={`Found at ${t.companies} distinct ${t.companies === 1 ? 'company' : 'companies'}`}
+                >
+                  {t.companies}co
+                </span>
+              </div>
             </div>
           ))}
         </div>
