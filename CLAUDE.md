@@ -50,6 +50,7 @@ signalpulse/
 │   ├── page.tsx                          # Main leads table view
 │   ├── companies/page.tsx                # Company trends + Weekly Delta
 │   ├── intelligence/page.tsx             # Market Intelligence tab
+│   ├── methodology/page.tsx              # Architecture + scoring explainer
 │   └── api/
 │       ├── signals/route.ts
 │       ├── tags/route.ts
@@ -59,9 +60,9 @@ signalpulse/
 │   ├── LeadsTable.tsx
 │   ├── ScoreBreakdown.tsx
 │   ├── IntentScoreBadge.tsx
+│   ├── FilterSidebar.tsx
 │   ├── TrendChart.tsx
 │   ├── WeeklyDeltaBadge.tsx
-│   ├── FilterSidebar.tsx
 │   ├── KpiCard.tsx
 │   └── NavLinks.tsx
 ├── lib/
@@ -178,13 +179,34 @@ Scores computed client-side in `lib/scoring.ts` — not stored in DB. `computed_
 | 1 | Signal Categories | ✅ Complete |
 | 2 | Explainable Scoring | ✅ Complete |
 | 3 | Market Intelligence Tab | ✅ Complete |
-| 4 | Visualization Improvements (sparklines, velocity badges) | ⬜ Pending |
-| 5 | Slack/Email Alerts — n8n hot lead notifications | ⬜ Pending (Human) |
-| 6 | Company Enrichment (Clearbit firmographics) | ⬜ Pending |
+| 4 | UX Context Gaps (action menu, recency, filters, bubble chart, methodology) | ✅ Complete |
+| 5 | Visualization Improvements (sparklines, velocity badges) | ⬜ Pending |
+| 6 | Slack/Email Alerts — n8n hot lead notifications | ⬜ Pending (Human) |
+| 7 | Company Enrichment (Clearbit firmographics) | ⬜ Pending |
 
 ---
 
 # MEMORY LOG
+
+---
+
+### [2026-04-15] — UX Context Gaps — Completed by: 🤖 Claude Code
+
+**What was built:**
+- `components/LeadsTable.tsx` — Table independently scrollable (maxHeight + sticky thead). Recency traffic-light dot on Added column (green < 48h, amber 3-7d, gray 7+d). Action menu column: Copy Hook (clipboard + 2s feedback), LinkedIn people search, job posting source link.
+- `components/FilterSidebar.tsx` — Dynamic signal counts next to each family and tag. Zero-count options dimmed to prevent dead-end filters.
+- `app/page.tsx` — Passes signals array to FilterSidebar for count computation.
+- `app/intelligence/page.tsx` — Velocity cards now clickable: navigates to `/?search=CompanyName`. Tool × Intent SVG bubble chart (Y = avg score, size = count, color = score tier). Top Tools now shows distinct company count per tool.
+- `app/api/intelligence/summary/route.ts` — Extended to return `bubbleData` (top 12 tags with avg_score) and `companies` count per tag.
+- `app/methodology/page.tsx` — New page: pipeline architecture walkthrough + scoring component reference + recency legend.
+- `components/NavLinks.tsx` — Added Methodology nav link.
+
+**Key decisions:**
+- Bubble chart uses DB `intent_score` (not computed_score) since it's aggregated server-side
+- Dynamic filter counts reflect the currently-loaded result set — user sees "given your other filters, N signals match this"
+- Skipped: Gap 6 (historical delta — Companies page already has WeeklyDelta), Gap 8 (ghost signals — DB-level dedup via external_job_id)
+
+**Next step:** Priority 5 — Visualization Improvements (sparklines, velocity badges) — no schema changes needed
 
 ---
 
