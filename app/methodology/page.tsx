@@ -1,0 +1,366 @@
+'use client';
+
+// ── Methodology page — explains the architecture and scoring logic ─────────────
+// Aimed at recruiters and technical users who want to understand how the system works.
+
+const SCORE_COMPONENTS = [
+  {
+    name: 'Implementation Signal',
+    max: 3,
+    color: '#6366f1',
+    description: 'Analyses the job title for named tools + implementation keywords.',
+    rules: [
+      { score: 3, label: 'Named tool + implementation keyword in title', example: '"NetSuite Implementation Manager"' },
+      { score: 2, label: 'Implementation keyword only', example: '"ERP Migration Lead"' },
+      { score: 1, label: 'Named tool only', example: '"Salesforce Administrator"' },
+      { score: 0, label: 'No signal', example: '"Business Analyst"' },
+    ],
+  },
+  {
+    name: 'Tool Specificity',
+    max: 3,
+    color: '#06b6d4',
+    description: 'Uses the OpenAI-extracted tech stack to count named tools in the role. Breadth of tools = stronger buying context.',
+    rules: [
+      { score: 3, label: '3+ tools identified in description', example: 'NetSuite, Workday, Coupa' },
+      { score: 2, label: '2 tools identified', example: 'Salesforce, HubSpot' },
+      { score: 1, label: '1 tool identified', example: 'Snowflake' },
+      { score: 0, label: 'No tools identified', example: '—' },
+    ],
+  },
+  {
+    name: 'Buying Window',
+    max: 2,
+    color: '#f59e0b',
+    description: 'Scans the description for timeline commitments, replacement signals, and new-role language. Maintenance roles score 0.',
+    rules: [
+      { score: 2, label: '2+ buying signals in description', example: '"go-live Q1", "replacing legacy ERP"' },
+      { score: 1, label: '1 buying signal', example: '"new implementation"' },
+      { score: 0, label: 'No signals or maintenance language', example: '"support existing Salesforce"' },
+    ],
+  },
+  {
+    name: 'Pain Points',
+    max: 2,
+    color: '#10b981',
+    description: 'Looks for problem-language that signals the company is describing the problem your software solves.',
+    rules: [
+      { score: 2, label: '3+ pain indicators', example: '"manual", "siloed", "no visibility"' },
+      { score: 1, label: '1-2 pain indicators', example: '"spreadsheet-based"' },
+      { score: 0, label: 'No pain language', example: '—' },
+    ],
+  },
+];
+
+const PIPELINE_STEPS = [
+  { label: 'SerpApi', sublabel: 'Google Jobs', description: '12 job queries run daily at 6AM. Returns raw job listings with title, company, description, and URL.' },
+  { label: 'n8n', sublabel: 'Automation', description: 'Orchestrates the pipeline. Deduplicates by external_job_id, filters by score ≥ 7, and writes clean rows to Supabase.' },
+  { label: 'GPT-4o-mini', sublabel: 'OpenAI', description: 'Extracts: intent score (0-10), reason, tech_stack[], and job_family from raw descriptions. Returns structured JSON.' },
+  { label: 'Supabase', sublabel: 'Postgres', description: 'Stores companies, job_signals, signal_tags, and weekly_snapshots. The signals_with_tags view aggregates tags per signal.' },
+  { label: 'Next.js', sublabel: 'API + UI', description: 'API routes enrich each signal with deterministic computed_score and seniority_label. Dashboard renders Leads, Companies, and Intelligence views.' },
+];
+
+function PipelineStep({ step, index, total }: { step: typeof PIPELINE_STEPS[0]; index: number; total: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
+      {/* Step node */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--font-dm-mono), monospace',
+            fontSize: 13,
+            fontWeight: 600,
+            color: 'var(--accent)',
+          }}
+        >
+          {index + 1}
+        </div>
+        {index < total - 1 && (
+          <div style={{ width: 1, height: 32, background: 'var(--border)', margin: '4px 0' }} />
+        )}
+      </div>
+
+      {/* Step content */}
+      <div style={{ marginLeft: 16, paddingBottom: index < total - 1 ? 0 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{step.label}</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-dm-mono), monospace',
+              fontSize: 10,
+              padding: '1px 6px',
+              borderRadius: 3,
+              background: 'rgba(99,102,241,0.1)',
+              color: '#818cf8',
+              border: '1px solid rgba(99,102,241,0.2)',
+            }}
+          >
+            {step.sublabel}
+          </span>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, paddingBottom: 24 }}>
+          {step.description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ScoreComponentCard({ component }: { component: typeof SCORE_COMPONENTS[0] }) {
+  return (
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        padding: '20px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: component.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{component.name}</span>
+        </div>
+        <span
+          style={{
+            fontFamily: 'var(--font-dm-mono), monospace',
+            fontSize: 12,
+            color: component.color,
+          }}
+        >
+          0–{component.max} pts
+        </span>
+      </div>
+
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+        {component.description}
+      </p>
+
+      {/* Rules table */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {component.rules.map((rule) => (
+          <div
+            key={rule.score}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '24px 1fr auto',
+              gap: 10,
+              alignItems: 'start',
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: 'var(--bg-elevated)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-dm-mono), monospace',
+                fontSize: 12,
+                fontWeight: 600,
+                color: rule.score === component.max ? '#10b981' : rule.score > 0 ? '#f59e0b' : 'var(--text-muted)',
+              }}
+            >
+              +{rule.score}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{rule.label}</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-dm-mono), monospace',
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                textAlign: 'right',
+              }}
+            >
+              {rule.example}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function MethodologyPage() {
+  return (
+    <main
+      style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '28px 24px',
+        maxWidth: 860,
+        margin: '0 auto',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 40,
+      }}
+    >
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+          How SignalPulse Works
+        </h1>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 640 }}>
+          SignalPulse identifies "buying windows" — moments when a company's hiring activity
+          signals they are actively purchasing or implementing new software. This page explains the
+          pipeline architecture and the scoring logic behind every intent score you see.
+        </p>
+      </div>
+
+      {/* ── Pipeline architecture ───────────────────────────────────────────── */}
+      <section>
+        <h2
+          style={{
+            fontSize: 13,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'var(--text-muted)',
+            marginBottom: 24,
+            fontWeight: 500,
+          }}
+        >
+          Pipeline Architecture
+        </h2>
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '24px 28px',
+          }}
+        >
+          {PIPELINE_STEPS.map((step, i) => (
+            <PipelineStep key={step.label} step={step} index={i} total={PIPELINE_STEPS.length} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Intent score ───────────────────────────────────────────────────── */}
+      <section>
+        <div style={{ marginBottom: 20 }}>
+          <h2
+            style={{
+              fontSize: 13,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: 'var(--text-muted)',
+              marginBottom: 8,
+              fontWeight: 500,
+            }}
+          >
+            Intent Score (0–10)
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Every signal gets a deterministic score computed from four components. Scores are calculated
+            client-side at query time — not stored — so they always reflect the latest keyword lists.
+            Seniority is extracted but <em>not</em> scored: a junior implementation hire is equally
+            valid evidence of a buying window as a director-level one.
+          </p>
+        </div>
+
+        {/* Score bar visual */}
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '16px 20px',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+            {[
+              { max: 3, color: '#6366f1', label: 'Impl.' },
+              { max: 3, color: '#06b6d4', label: 'Tools' },
+              { max: 2, color: '#f59e0b', label: 'Window' },
+              { max: 2, color: '#10b981', label: 'Pain' },
+            ].map((c) => (
+              <div key={c.label} style={{ flex: c.max, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ height: 6, borderRadius: 3, background: c.color, opacity: 0.7 }} />
+                <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 9, color: 'var(--text-muted)' }}>
+                  {c.label} /{c.max}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+            <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>
+              /10
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 14 }}>
+          {SCORE_COMPONENTS.map((component) => (
+            <ScoreComponentCard key={component.name} component={component} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Data freshness ──────────────────────────────────────────────────── */}
+      <section>
+        <h2
+          style={{
+            fontSize: 13,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'var(--text-muted)',
+            marginBottom: 16,
+            fontWeight: 500,
+          }}
+        >
+          Data Freshness
+        </h2>
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {[
+            { dot: '#10b981', label: 'Green dot on Added column', desc: 'Signal added < 48 hours ago — prime outreach window' },
+            { dot: '#f59e0b', label: 'Amber dot', desc: '3–7 days old — still within follow-up window' },
+            { dot: '#475569', label: 'Gray dot', desc: '7+ days old — potentially stale, position may be filled' },
+          ].map((item) => (
+            <div key={item.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: item.dot,
+                  flexShrink: 0,
+                  marginTop: 5,
+                  boxShadow: item.dot === '#10b981' ? `0 0 5px ${item.dot}` : 'none',
+                }}
+              />
+              <div>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}> — {item.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}

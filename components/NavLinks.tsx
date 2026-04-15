@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/',              label: 'Leads'        },
   { href: '/companies',     label: 'Companies'    },
   { href: '/intelligence',  label: 'Intelligence' },
+  { href: '/methodology',   label: 'Methodology'  },
 ];
 
 export default function NavLinks() {
