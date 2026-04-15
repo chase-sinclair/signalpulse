@@ -130,8 +130,16 @@ function SortIcon({ field, current, dir }: { field: SortField; current: SortFiel
 export default function LeadsTable({ signals, loading, onReset }: Props) {
   const [sortField, setSortField] = useState<SortField>('intent_score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  // Only one row can be expanded at a time — null means all collapsed
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Track which row's hook was just copied for brief visual feedback
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function copyHook(signal: JobSignal) {
+    if (!signal.sales_hook) return;
+    navigator.clipboard.writeText(signal.sales_hook);
+    setCopiedId(signal.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -221,6 +229,8 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                   Added
                   <SortIcon field="created_at" current={sortField} dir={sortDir} />
                 </th>
+                {/* Actions */}
+                <th style={{ ...thStyle, width: 96 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -228,7 +238,7 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                 Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
               ) : sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ ...tdStyle, textAlign: 'center', padding: '48px 20px' }}>
+                  <td colSpan={9} style={{ ...tdStyle, textAlign: 'center', padding: '48px 20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 32 }}>🔍</span>
                       <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
@@ -415,7 +425,7 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                     {isExpanded && (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           style={{ padding: 0, borderBottom: '1px solid var(--border)' }}
                         >
                           <ScoreBreakdown
@@ -425,6 +435,88 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         </td>
                       </tr>
                     )}
+                      {/* Actions — Copy Hook, LinkedIn, Source */}
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          {/* Copy Hook */}
+                          <button
+                            onClick={() => copyHook(signal)}
+                            disabled={!signal.sales_hook}
+                            title={signal.sales_hook ? 'Copy sales hook' : 'No hook available'}
+                            style={{
+                              fontFamily: 'var(--font-dm-mono), monospace',
+                              fontSize: 10,
+                              padding: '3px 7px',
+                              borderRadius: 4,
+                              border: '1px solid var(--border)',
+                              background: copiedId === signal.id ? 'rgba(16,185,129,0.12)' : 'transparent',
+                              color: copiedId === signal.id ? '#10b981' : signal.sales_hook ? 'var(--text-secondary)' : 'var(--text-muted)',
+                              cursor: signal.sales_hook ? 'pointer' : 'default',
+                              transition: 'all 150ms',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {copiedId === signal.id ? '✓' : 'Copy'}
+                          </button>
+
+                          {/* LinkedIn — find decision makers */}
+                          <a
+                            href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(signal.company_name + ' Hiring Manager')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Find decision makers on LinkedIn"
+                            style={{
+                              fontFamily: 'var(--font-dm-mono), monospace',
+                              fontSize: 10,
+                              padding: '3px 7px',
+                              borderRadius: 4,
+                              border: '1px solid var(--border)',
+                              background: 'transparent',
+                              color: 'var(--text-secondary)',
+                              textDecoration: 'none',
+                              flexShrink: 0,
+                              transition: 'color 150ms, border-color 150ms',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = '#818cf8';
+                              e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = 'var(--text-secondary)';
+                              e.currentTarget.style.borderColor = 'var(--border)';
+                            }}
+                          >
+                            in
+                          </a>
+
+                          {/* Source — original job posting */}
+                          {signal.job_url && (
+                            <a
+                              href={signal.job_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="View original job posting"
+                              style={{
+                                fontFamily: 'var(--font-dm-mono), monospace',
+                                fontSize: 10,
+                                padding: '3px 7px',
+                                borderRadius: 4,
+                                border: '1px solid var(--border)',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                textDecoration: 'none',
+                                flexShrink: 0,
+                                transition: 'color 150ms',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                            >
+                              ↗
+                            </a>
+                          )}
+                        </div>
+                      </td>
+
                     </Fragment>
                   );
                 })
