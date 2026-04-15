@@ -6,10 +6,10 @@ export interface ScoreComponent {
 }
 
 export interface ScoreComponents {
-  title_match: ScoreComponent;
-  stack_match: ScoreComponent;
-  seniority:   ScoreComponent;
-  urgency:     ScoreComponent;
+  implementation_signal: ScoreComponent;
+  tool_specificity:      ScoreComponent;
+  buying_window:         ScoreComponent;
+  pain_points:           ScoreComponent;
 }
 
 // ─── Primitive types ────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ export interface JobSignal {
   intent_score: number | null;
   score_components?: ScoreComponents | null; // Computed by API route — not stored in DB
   computed_score?: number;                    // Sum of score_components — display source of truth
+  seniority_label?: 'EXEC' | 'SR' | 'IC' | null; // Computed for UI enrichment — not part of score
   sales_hook: string | null;
   is_hot_lead: boolean;
   posted_at: string | null;   // TEXT in DB — SerpApi relative strings e.g. "4 days ago"

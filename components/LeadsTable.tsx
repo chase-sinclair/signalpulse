@@ -300,9 +300,29 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         </div>
                       </td>
 
-                      {/* Job Title */}
-                      <td style={{ ...tdStyle, color: 'var(--text-secondary)', maxWidth: 200 }}>
-                        {truncate(signal.job_title, 40)}
+                      {/* Job Title + seniority label */}
+                      <td style={{ ...tdStyle, color: 'var(--text-secondary)', maxWidth: 220 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span>{truncate(signal.job_title, 38)}</span>
+                          {signal.seniority_label && (
+                            <span
+                              style={{
+                                fontFamily: 'var(--font-dm-mono), monospace',
+                                fontSize: 9,
+                                padding: '2px 5px',
+                                borderRadius: 3,
+                                background: 'rgba(99,102,241,0.1)',
+                                color: '#818cf8',
+                                border: '1px solid rgba(99,102,241,0.2)',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                              }}
+                              title="Seniority level"
+                            >
+                              {signal.seniority_label}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Family pill */}

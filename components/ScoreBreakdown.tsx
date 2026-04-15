@@ -9,13 +9,18 @@ interface Props {
 }
 
 const LABELS: Record<keyof ScoreComponents, string> = {
-  title_match: 'Title Signal',
-  stack_match: 'Tech Stack',
-  seniority:   'Seniority',
-  urgency:     'Urgency',
+  implementation_signal: 'Impl. Signal',
+  tool_specificity:      'Tool Match',
+  buying_window:         'Buying Window',
+  pain_points:           'Pain Points',
 };
 
-const ROW_ORDER: Array<keyof ScoreComponents> = ['title_match', 'stack_match', 'seniority', 'urgency'];
+const ROW_ORDER: Array<keyof ScoreComponents> = [
+  'implementation_signal',
+  'tool_specificity',
+  'buying_window',
+  'pain_points',
+];
 
 function dotColor(score: number, max: number): string {
   if (score === 0)   return 'var(--score-low)';

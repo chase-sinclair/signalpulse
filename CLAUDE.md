@@ -361,20 +361,21 @@ Props: `{ components: ScoreComponents; computedScore: number }`
 
 ---
 
-### [2026-04-14] — Priority 2: Explainable Scoring — Completed by: 🤖 Claude Code
+### [2026-04-15] — Scoring Criteria Overhaul — Completed by: 🤖 Claude Code
 
 **What was built:**
-- `lib/scoring.ts` — `computeScoreComponents()`, `computeIntentScore()`, `NAMED_TOOLS`, `URGENCY_TERMS` constants
-- `lib/types.ts` — Added `ScoreComponent`, `ScoreComponents` interfaces; added `score_components?` and `computed_score?` to `JobSignal`
-- `app/api/signals/route.ts` — Enriches each signal with `score_components` + `computed_score` after Supabase fetch
-- `components/ScoreBreakdown.tsx` — 4-row breakdown panel with dot display, score fraction, reason text, 150ms slide-down animation
-- `components/IntentScoreBadge.tsx` — Now accepts `onClick`/`isExpanded` props; renders as button with rotating ▾ chevron
-- `components/LeadsTable.tsx` — `expandedId` state for single-row expansion; ScoreBreakdown renders in full-width row below signal
+- `lib/scoring.ts` — Full rewrite. Removed `seniority` from score. Renamed components: `title_match` → `implementation_signal`, `stack_match` → `tool_specificity`, `urgency` → `buying_window`. Added new `pain_points` component. Added `REPLACEMENT_SIGNALS`, `PAIN_POINT_TERMS` keyword lists. Added `computeSeniorityLabel()` (returns `'EXEC' | 'SR' | 'IC' | null`).
+- `lib/types.ts` — `ScoreComponents` updated to match new component names. Added `seniority_label?` field to `JobSignal`.
+- `app/api/signals/route.ts` — Enriched signals now include `seniority_label` from `computeSeniorityLabel()`.
+- `components/ScoreBreakdown.tsx` — Labels updated: "Impl. Signal", "Tool Match", "Buying Window", "Pain Points".
+- `components/LeadsTable.tsx` — Seniority label rendered as subtle indigo chip next to job title.
 
 **Key decisions:**
-- `computed_score` (deterministic, client-computed) replaces DB `intent_score` as the display source of truth in badge + sort
-- Score components computed at API route level, not stored — no DB writes needed for this feature
-- `score_components` and `computed_score` added as optional fields on `JobSignal` (not always present on raw DB rows)
+- Seniority removed from score because it measures who to contact, not whether a company is in a buying window. A junior implementation hire is equally valid as a senior one.
+- `tool_specificity` now uses `tech_stack[]` (OpenAI-extracted, curated) instead of scanning raw text — avoids double-counting repeated mentions.
+- `buying_window` expands `urgency` to include replacement/greenfield signals (`REPLACEMENT_SIGNALS`), which are stronger indicators than vague urgency buzzwords.
+- `pain_points` is a new component — pre-purchase language in descriptions is a real buying signal not previously captured.
+- Score max remains 10 (3+3+2+2) — no threshold changes needed.
 
 **Known issues:**
 - None
@@ -403,31 +404,6 @@ Props: `{ components: ScoreComponents; computedScore: number }`
 **Next step:**
 - Priority 2 (Explainable Scoring) — requires human to run schema migration first: `ALTER TABLE job_signals ADD COLUMN score_components JSONB;`
 - OR Priority 4 (Visualization Improvements) — no schema changes needed
-
----
-
-### [2026-04-08] — Signal Categories + Pipeline Fixes — Completed by: 👤 Human + 🤖 Claude Code
-
-**What was built:**
-- 8 new SerpApi queries across Sales, Security, Operations, Infrastructure families
-- OpenAI prompt updated: multi-vertical, returns `job_family` in JSON, single value enforced
-- `date_posted:today` chips filter added to SerpApi node
-- `Edit Fields` node: `job_family` now dynamic + capitalized, `external_job_id` has null fallback
-- `Map Tags to Job ID`: fixed dead `$('Postgres')` reference → `$('Get a row').item.json.company_id`
-- `Create a row`: all field expressions updated to `$node["Edit Fields"].json.*`
-
-**Current DB state:**
-- 66 signals: Finance 42, Sales 11, Operations 10, Security 2, Other 1, Infrastructure 0
-- Infrastructure not yet populating — Snowflake/Databricks queries need more days
-- Some older rows missing tags (pre-fix) — self-correcting going forward
-
-**Known issues:**
-- `dbt analytics engineer` returned 0 results — replaced with `Databricks data engineer`
-- Infrastructure family still empty — monitor over next few days
-
-**Next step:**
-- Let pipeline accumulate data daily
-- Build Priority 2 or Priority 4 (see Feature Roadmap)
 
 ---
 *End of CLAUDE.md — SignalPulse AI v2.0*

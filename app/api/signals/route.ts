@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase';
 import type { JobFamily } from '@/lib/types';
-import { computeScoreComponents, computeIntentScore } from '@/lib/scoring';
+import { computeScoreComponents, computeIntentScore, computeSeniorityLabel } from '@/lib/scoring';
 
 export const dynamic = 'force-dynamic'; // Never cache — data updates daily
 
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         ...signal,
         score_components: components,
         computed_score:   computeIntentScore(components),
+        seniority_label:  computeSeniorityLabel(signal.job_title),
       };
     });
 
