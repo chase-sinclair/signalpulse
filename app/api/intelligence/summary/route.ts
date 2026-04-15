@@ -45,8 +45,9 @@ export async function GET() {
       if (!row.tag) continue;
       if (!tagStats[row.tag]) tagStats[row.tag] = { mentions: 0, companies: new Set(), scores: [] };
       tagStats[row.tag].mentions += 1;
-      // job_signals is an object (FK relation), not an array
-      const signal = row.job_signals as { company_name: string; intent_score: number | null } | null;
+      // Supabase returns FK joins as arrays — take first element
+      const signalArr = row.job_signals as { company_name: string; intent_score: number | null }[] | null;
+      const signal = Array.isArray(signalArr) ? signalArr[0] : (signalArr as unknown as { company_name: string; intent_score: number | null } | null);
       if (signal?.company_name) tagStats[row.tag].companies.add(signal.company_name);
       if (signal?.intent_score != null) tagStats[row.tag].scores.push(signal.intent_score);
     }
