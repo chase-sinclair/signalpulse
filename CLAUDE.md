@@ -1,56 +1,30 @@
 # CLAUDE.md — SignalPulse AI
-> Version 2.0 | Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
+> Stack: Next.js · Supabase · n8n · OpenAI gpt-4o-mini · SerpApi · Docker
 > Single source of truth. Claude Code reads this automatically at session start.
 
 ---
 
 ## SECTION 0: BEHAVIOR RULES
 
-### 0.1 Session Start Protocol
-1. Read this entire file
-2. Read the MEMORY LOG at the bottom
-3. State: last completed phase, what's next, any unresolved issues
-4. Ask user to confirm before proceeding
-
-**Never assume continuity from a previous session. Always re-orient from the memory log.**
-
-### 0.2 Memory Log Protocol (CRITICAL)
-After every completed phase, append an entry to MEMORY LOG. Non-negotiable.
-
-```
-### [DATE] — [Phase Name] — Completed by: [Human | Claude Code]
-**What was built:** [files created/modified]
-**Key decisions:** [architectural choices, deviations, tradeoffs]
-**Known issues:** [anything next session should know]
-**Next step:** [exactly what to do next, and who owns it]
-```
-
-### 0.3 Coding Standards
+### Coding Standards
 - TypeScript everywhere. No `any` — use interfaces in `lib/types.ts`
 - `@/` path aliases throughout. No `../` relative imports across directories
-- Functional components only
-- Every async function must have try/catch
+- Functional components only. Every async function must have try/catch
 - Never hardcode secrets — throw descriptive error at startup if env var missing
-- Comment the *why* not the *what*
-- Remove all debug `console.log` before marking phase complete
+- Comment the *why* not the *what*. Remove all debug `console.log` before marking complete
 
-### 0.4 File Safety Rules
+### File Safety
 - Never delete files without explicit user confirmation
 - Never modify `supabase/schema.sql` — use `supabase/migrations/YYYYMMDD_description.sql`
-- Never commit secrets — verify `.gitignore` before every `git add`
+- Never commit secrets — run `git grep -i "sk-\|service_role\|eyJ"` before every commit
 - Always read a file before editing it
 
-### 0.5 When Uncertain
-Stop and ask. Phrase as: "Before I build X, I want to confirm: [specific question]."
+### Ownership
+- Claude Code owns all frontend/API work
+- Human owns all n8n workflow changes
 
-### 0.6 Testing Before Marking Complete
-- **SQL:** Run in Supabase SQL Editor. Confirm no errors. Run SELECT to verify.
-- **TypeScript/API:** `npm run build` with zero errors. Test route with curl or browser.
-- **UI Components:** Render with live data. Verify empty, loading, error states.
-
-### 0.7 Ownership
-All original phases complete. Claude Code owns all future frontend/API work.
-Human owns any future n8n workflow changes.
+### Memory Log Protocol
+After every completed phase, prepend an entry to MEMORY LOG (bottom of this file). Keep last 2–3 entries only.
 
 ---
 
@@ -59,8 +33,6 @@ Human owns any future n8n workflow changes.
 **What:** SignalPulse AI — B2B Sales Intelligence Engine. Monitors job postings to identify "Buying Windows" — moments when hiring patterns signal a company is about to purchase new software.
 
 **Example:** A company posts "NetSuite Implementation Manager" → tells Ramp/Brex/Stripe this company is formalizing their finance stack right now.
-
-**Stack:** Next.js 14 (App Router) · Supabase (Postgres) · n8n (automation) · OpenAI gpt-4o-mini · SerpApi (Google Jobs) · Docker
 
 **Live URLs:**
 - Dashboard: https://signalpulse-six.vercel.app
@@ -74,13 +46,10 @@ Human owns any future n8n workflow changes.
 
 ```
 signalpulse/
-├── CLAUDE.md
-├── .env.local                    # Never commit — contains Supabase keys
 ├── app/
-│   ├── layout.tsx
-│   ├── page.tsx                  # Main leads table view
-│   ├── companies/page.tsx        # Company trends + Weekly Delta
-│   ├── intelligence/page.tsx     # Market Intelligence tab
+│   ├── page.tsx                          # Main leads table view
+│   ├── companies/page.tsx                # Company trends + Weekly Delta
+│   ├── intelligence/page.tsx             # Market Intelligence tab
 │   └── api/
 │       ├── signals/route.ts
 │       ├── tags/route.ts
@@ -88,25 +57,21 @@ signalpulse/
 │       └── intelligence/velocity/route.ts
 ├── components/
 │   ├── LeadsTable.tsx
+│   ├── ScoreBreakdown.tsx
+│   ├── IntentScoreBadge.tsx
 │   ├── TrendChart.tsx
 │   ├── WeeklyDeltaBadge.tsx
-│   ├── IntentScoreBadge.tsx
 │   ├── FilterSidebar.tsx
 │   ├── KpiCard.tsx
 │   └── NavLinks.tsx
 ├── lib/
-│   ├── types.ts                  # All TypeScript interfaces — source of truth
-│   ├── supabase.ts               # Browser, server, admin clients
+│   ├── types.ts        # All TypeScript interfaces — source of truth
+│   ├── scoring.ts      # computeScoreComponents, computeIntentScore, computeSeniorityLabel
+│   ├── supabase.ts     # Browser, server, admin clients
 │   └── utils.ts
-├── supabase/
-│   ├── schema.sql                # DO NOT EDIT — use migrations/
-│   └── migrations/
-├── docker/
-│   ├── docker-compose.yml
-│   └── setup.sh
-└── n8n/
-    ├── signalpulse_daily.json
-    └── signalpulse_snapshots.json
+└── supabase/
+    ├── schema.sql      # DO NOT EDIT — use migrations/
+    └── migrations/
 ```
 
 ---
@@ -114,44 +79,37 @@ signalpulse/
 ## SECTION 3: ENVIRONMENT VARIABLES
 
 ```env
-# .env.local (Next.js)
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=[in .env.local — never commit]
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...   # server-side only — never in NEXT_PUBLIC_ vars, bypasses RLS
 ```
-
-**Key rules:**
-- `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS — server-side only, never in `NEXT_PUBLIC_` vars
-- Before every `git commit` run: `git grep -i "sk-\|service_role\|eyJ"` and abort if any non-anon key found
 
 ---
 
-## SECTION 4: DATABASE SCHEMA (LIVE — DO NOT MODIFY schema.sql)
+## SECTION 4: DATABASE SCHEMA
 
 **Tables:** `companies`, `job_signals`, `signal_tags`, `weekly_snapshots`
 
 **Key view:** `signals_with_tags` — aggregates tags onto each signal as `tech_stack: string[]`. Always query this view, never raw tables separately.
 
-**Critical schema deviations from original spec:**
-- `posted_at` is `TEXT` (not TIMESTAMPTZ) — SerpApi returns relative strings like "4 days ago"
-- `is_hot_lead` threshold is `>= 9` in n8n (not >= 8)
-- `job_family` CHECK constraint: `Finance | Infrastructure | Security | Sales | Operations | Other`
+**Critical deviations:**
+- `posted_at` is `TEXT` — SerpApi returns relative strings like "4 days ago"
+- `is_hot_lead` threshold is `>= 9` in n8n
+- `job_family` CHECK: `Finance | Infrastructure | Security | Sales | Operations | Other`
 
-**Stored procedure:** `refresh_weekly_snapshots()` — called via Supabase RPC every Sunday at 23:00 by the snapshots n8n workflow.
+**Stored procedure:** `refresh_weekly_snapshots()` — called via Supabase RPC every Sunday at 23:00.
 
 ---
 
 ## SECTION 5: DESIGN SYSTEM
-
-All new UI must match this exactly:
 
 ```css
 --bg-base:        #0a0a0f;
 --bg-surface:     #111118;
 --bg-elevated:    #1a1a24;
 --border:         #1e1e2e;
---accent:         #6366f1;   /* indigo — interactive elements */
---accent-hot:     #f59e0b;   /* amber — hot lead indicators */
+--accent:         #6366f1;   /* indigo */
+--accent-hot:     #f59e0b;   /* amber — hot leads */
 --text-primary:   #f1f5f9;
 --text-secondary: #94a3b8;
 --text-muted:     #475569;
@@ -159,17 +117,17 @@ All new UI must match this exactly:
 --score-mid:      #f59e0b;   /* 5-7  */
 --score-low:      #ef4444;   /* 1-4  */
 
-font-display: 'DM Mono', monospace;   /* numbers, scores, tags */
+font-display: 'DM Mono', monospace;
 font-body:    'Geist', sans-serif;
 ```
 
-**Reusable components:** `KpiCard`, `IntentScoreBadge`, `WeeklyDeltaBadge`, `TrendChart`, `FilterSidebar`, `LeadsTable`. Always reuse before creating new components.
+Reuse before creating: `KpiCard`, `IntentScoreBadge`, `WeeklyDeltaBadge`, `TrendChart`, `FilterSidebar`, `LeadsTable`.
 
 ---
 
 ## SECTION 6: N8N WORKFLOW (LIVE ON DIGITALOCEAN)
 
-**Daily scraper** (`SignalPulse AI`) — runs 6:00 AM daily. Current query set:
+**Daily scraper** (`SignalPulse AI`) — runs 6:00 AM daily:
 
 | Query | Family |
 |---|---|
@@ -186,224 +144,66 @@ font-body:    'Geist', sans-serif;
 | Workday implementation consultant | Operations |
 | Rippling HRIS implementation | Operations |
 
-**Weekly snapshots** (`signalpulse_snapshots`) — runs Sunday 23:00. Calls `refresh_weekly_snapshots()` via Supabase RPC.
+**Weekly snapshots** (`signalpulse_snapshots`) — runs Sunday 23:00. Calls `refresh_weekly_snapshots()` via RPC.
 
-**Critical n8n expression patterns (do not change without testing):**
+**Critical n8n expressions (do not change without testing):**
 - `external_job_id`: `$node["Split Out1"].json["job_id"] || $node["Split Out1"].json["share_link"] || $node["Split Out1"].json["title"] + "_" + $node["Split Out1"].json["company_name"]`
 - `job_family`: `$json.output[0].content[0].text.job_family.charAt(0).toUpperCase() + $json.output[0].content[0].text.job_family.slice(1)`
 - `company_id` in Map Tags to Job ID: `$('Get a row').item.json.company_id`
 - Score filter: `>= 7 AND > 0`
 
-**OpenAI model:** `gpt-4o-mini`. Returns JSON with: `score`, `reason`, `tech_stack`, `job_family`.
+**OpenAI model:** `gpt-4o-mini`. Returns JSON: `score`, `reason`, `tech_stack`, `job_family`.
 
 ---
 
-## SECTION 7: FEATURE ROADMAP
+## SECTION 7: SCORING SYSTEM
 
-| Priority | Feature | Status | Owner |
-|---|---|---|---|
-| 1 | Signal Categories (multi-family queries) | ✅ Complete | Human + Claude |
-| 2 | Explainable Scoring (score_components JSONB) | ✅ Complete | Claude Code |
-| 3 | Market Intelligence Tab | ✅ Complete | Claude Code |
-| 4 | Visualization Improvements (sparklines, velocity badges) | ⬜ Pending | Claude Code |
-| 5 | Slack/Email Alerts (n8n hot lead notifications) | ⬜ Pending | Human |
-| 6 | Company Enrichment (Clearbit firmographics) | ⬜ Pending | Claude Code |
+Scores computed client-side in `lib/scoring.ts` — not stored in DB. `computed_score` is the display source of truth (replaces DB `intent_score`). Max score: 10.
 
-**Priority 2 — Explainable Scoring** requires schema migration before frontend work:
-```sql
-ALTER TABLE job_signals ADD COLUMN score_components JSONB;
-```
-Human must run this and confirm before Claude Code builds the UI.
-
----
-
-## SECTION 8: BUILD ORDER STATUS
-
-| Phase | Description | Status |
+| Component | Max | Logic |
 |---|---|---|
-| Phase 1 | Supabase Schema + Seed | ✅ Complete |
-| Phase 2 | n8n Workflow | ✅ Complete |
-| Phase 3 | Handoff | ✅ Complete |
-| Phase 4a | Types + Supabase Client | ✅ Complete |
-| Phase 4b | API Route | ✅ Complete |
-| Phase 5a | UI Components | ✅ Complete |
-| Phase 5b | Dashboard Pages | ✅ Complete |
-| Phase 6a | Docker + n8n Deploy (DigitalOcean) | ✅ Complete |
-| Phase 6b | Vercel Deploy + README | ✅ Complete |
-| Phase 7 | Polish | ✅ Complete |
-| Phase 8 | Signal Categories + Pipeline Fixes | ✅ Complete |
-| Phase 9 | Market Intelligence Tab | ✅ Complete |
+| `implementation_signal` | 3 | Named tool + impl keyword in title = 3, impl only = 2, tool only = 1 |
+| `tool_specificity` | 3 | Uses `tech_stack[]` length (OpenAI-extracted). Min(3, length) |
+| `buying_window` | 2 | URGENCY_TERMS + REPLACEMENT_SIGNALS in description. Maintenance terms → 0 |
+| `pain_points` | 2 | PAIN_POINT_TERMS in description. 3+ = 2, 1-2 = 1 |
+
+`computeSeniorityLabel()` returns `EXEC | SR | IC | null` — displayed as UI badge only, not part of score.
 
 ---
 
-### Component Rules
+## SECTION 8: FEATURE ROADMAP
 
-**title_match (0-3)**
-Check `job_title` case-insensitive:
-- 3 → contains a named tool AND ("implementation" OR "migration" OR "rollout")
-- 2 → contains "implementation" OR "migration" OR "rollout" without named tool
-- 1 → contains a named tool without implementation signal
-- 0 → neither
-
-**stack_match (0-3)**
-Count named tool mentions in `raw_description` case-insensitive:
-- 3 → 3+ named tools found
-- 2 → 2 named tools found
-- 1 → 1 named tool found
-- 0 → none found
-
-**seniority (0-2)**
-Check `job_title` case-insensitive:
-- 2 → contains: vp, director, head of, chief, cfo, cto, cio, controller, president
-- 1 → contains: manager, senior, sr., lead, principal
-- 0 → contains: analyst, coordinator, associate, intern, junior, or no signal
-
-**urgency (0-2)**
-Count urgency terms in `raw_description` case-insensitive:
-- 2 → 2+ terms found
-- 1 → 1 term found
-- 0 → none found OR contains: "maintain", "support existing", "ongoing support"
-
-### Keyword Lists (define as constants in lib/scoring.ts)
-
-```typescript
-const NAMED_TOOLS = [
-  'netsuite', 'workday', 'salesforce', 'hubspot', 'okta', 'crowdstrike',
-  'snowflake', 'databricks', 'rippling', 'sap', 'oracle', 'sage intacct',
-  'quickbooks', 'dynamics', 'servicenow', 'coupa', 'concur', 'blackline',
-  'brex', 'ramp', 'stripe', 'adp', 'kronos', 'workato', 'mulesoft',
-  'dbt', 'fivetran', 'looker', 'tableau', 'power bi'
-]
-
-const URGENCY_TERMS = [
-  'go-live', 'go live', 'migration', 'cutover', 'starting now',
-  'new implementation', 'phase 1', 'rollout', 'launch', 'replacing',
-  'immediately', 'urgent', 'as soon as possible', 'asap'
-]
-```
-
-### Files to Create/Modify
-
-**New: `lib/scoring.ts`**
-- Export `computeScoreComponents(signal: Pick<JobSignal, 'job_title' | 'raw_description' | 'tech_stack'>): ScoreComponents`
-- Export `computeIntentScore(components: ScoreComponents): number`
-- All keyword lists as exported constants at top of file
-- Pure functions — no side effects, no imports from Next.js
-
-**Update: `lib/types.ts`**
-Add:
-```typescript
-export interface ScoreComponent {
-  score: number;
-  max: number;
-  reason: string;
-}
-
-export interface ScoreComponents {
-  title_match: ScoreComponent;
-  stack_match: ScoreComponent;
-  seniority:   ScoreComponent;
-  urgency:     ScoreComponent;
-}
-```
-Add to `JobSignal`:
-```typescript
-score_components: ScoreComponents | null;
-```
-
-**Update: `app/api/signals/route.ts`**
-After fetching from Supabase, enrich each signal:
-```typescript
-import { computeScoreComponents, computeIntentScore } from '@/lib/scoring'
-
-const enriched = (data ?? []).map(signal => {
-  const components = computeScoreComponents(signal)
-  return {
-    ...signal,
-    score_components: components,
-    computed_score: computeIntentScore(components)
-  }
-})
-```
-Return `enriched` instead of raw `data`.
-
-**New: `components/ScoreBreakdown.tsx`**
-Props: `{ components: ScoreComponents; computedScore: number }`
-- 4 rows: label | dot display | score fraction | reason text
-- Dot display: filled ● vs empty ○, colored green/amber/red
-- Labels: "Title Signal", "Tech Stack", "Seniority", "Urgency"
-- Subtle slide-down animation 150ms
-- Null-safe: renders nothing if components is null
-
-**Update: `components/LeadsTable.tsx`**
-- `IntentScoreBadge` becomes clickable — toggles `ScoreBreakdown`
-- Add chevron icon (down/up) next to badge
-- Only one row expanded at a time
-- Pass `score_components` and `computed_score` from signal to breakdown
-
-**Update: `components/IntentScoreBadge.tsx`**
-- Accept optional `onClick` and `isExpanded` props
-- Show chevron when `onClick` is provided
-- Cursor pointer, subtle hover ring
-
-### Design
-- Match Section 5 color palette exactly
-- Dot colors: green if score === max, amber if partial, red if 0
-- Reason text: `--text-secondary`, 12px
-- Panel background: `--bg-elevated`, border-top `--border`
-- Mobile: full width, stacks cleanly
+| Priority | Feature | Status |
+|---|---|---|
+| 1 | Signal Categories | ✅ Complete |
+| 2 | Explainable Scoring | ✅ Complete |
+| 3 | Market Intelligence Tab | ✅ Complete |
+| 4 | Visualization Improvements (sparklines, velocity badges) | ⬜ Pending |
+| 5 | Slack/Email Alerts — n8n hot lead notifications | ⬜ Pending (Human) |
+| 6 | Company Enrichment (Clearbit firmographics) | ⬜ Pending |
 
 ---
 
 # MEMORY LOG
-
-> Most recent entry first. Keep only last 2-3 entries — archive older ones.
 
 ---
 
 ### [2026-04-15] — Scoring Criteria Overhaul — Completed by: 🤖 Claude Code
 
 **What was built:**
-- `lib/scoring.ts` — Full rewrite. Removed `seniority` from score. Renamed components: `title_match` → `implementation_signal`, `stack_match` → `tool_specificity`, `urgency` → `buying_window`. Added new `pain_points` component. Added `REPLACEMENT_SIGNALS`, `PAIN_POINT_TERMS` keyword lists. Added `computeSeniorityLabel()` (returns `'EXEC' | 'SR' | 'IC' | null`).
-- `lib/types.ts` — `ScoreComponents` updated to match new component names. Added `seniority_label?` field to `JobSignal`.
-- `app/api/signals/route.ts` — Enriched signals now include `seniority_label` from `computeSeniorityLabel()`.
-- `components/ScoreBreakdown.tsx` — Labels updated: "Impl. Signal", "Tool Match", "Buying Window", "Pain Points".
-- `components/LeadsTable.tsx` — Seniority label rendered as subtle indigo chip next to job title.
+- `lib/scoring.ts` — Removed `seniority` from score. New components: `implementation_signal`, `tool_specificity`, `buying_window`, `pain_points`. Added `REPLACEMENT_SIGNALS`, `PAIN_POINT_TERMS`. Added `computeSeniorityLabel()`.
+- `lib/types.ts` — `ScoreComponents` updated. Added `seniority_label?` to `JobSignal`.
+- `app/api/signals/route.ts` — `seniority_label` added to enriched output.
+- `components/ScoreBreakdown.tsx` — Labels updated to match new components.
+- `components/LeadsTable.tsx` — Seniority rendered as `EXEC/SR/IC` indigo chip next to job title.
 
 **Key decisions:**
-- Seniority removed from score because it measures who to contact, not whether a company is in a buying window. A junior implementation hire is equally valid as a senior one.
-- `tool_specificity` now uses `tech_stack[]` (OpenAI-extracted, curated) instead of scanning raw text — avoids double-counting repeated mentions.
-- `buying_window` expands `urgency` to include replacement/greenfield signals (`REPLACEMENT_SIGNALS`), which are stronger indicators than vague urgency buzzwords.
-- `pain_points` is a new component — pre-purchase language in descriptions is a real buying signal not previously captured.
-- Score max remains 10 (3+3+2+2) — no threshold changes needed.
+- Seniority removed from score — measures who to contact, not whether a buying window exists
+- `tool_specificity` uses `tech_stack[]` (OpenAI-curated) instead of raw text scan
+- `buying_window` expands urgency to include replacement/greenfield language
+- `pain_points` added — pre-purchase problem language is a real buying signal
 
-**Known issues:**
-- None
-
-**Next step:**
-- Priority 4 (Visualization Improvements — sparklines, velocity badges) — no schema changes needed
+**Next step:** Priority 4 — Visualization Improvements (sparklines, velocity badges). No schema changes needed.
 
 ---
-
-### [2026-04-08] — Section 16 Complete: Market Intelligence Tab — Completed by: 🤖 Claude Code
-
-**What was built:**
-- `app/api/intelligence/summary/route.ts` — KPIs + family breakdown + top 10 tags
-- `app/api/intelligence/velocity/route.ts` — companies with 2+ signals in last 7 days
-- `app/intelligence/page.tsx` — full Intelligence page with KPI cards, Top Tools list, TrendChart, Hiring Velocity grid
-- `components/NavLinks.tsx` — added Intelligence nav link
-
-**Key decisions:**
-- Page placed at `app/intelligence/page.tsx` (not `app/(dashboard)/intelligence/`) — matches actual project file structure
-- All data aggregated in JS from existing tables — no schema changes
-- `VelocityCompany` interface exported from route file, imported by page
-
-**Known issues:**
-- Velocity section shows empty state until pipeline accumulates 2+ signals from same company within 7 days — expected behavior
-
-**Next step:**
-- Priority 2 (Explainable Scoring) — requires human to run schema migration first: `ALTER TABLE job_signals ADD COLUMN score_components JSONB;`
-- OR Priority 4 (Visualization Improvements) — no schema changes needed
-
----
-*End of CLAUDE.md — SignalPulse AI v2.0*
+*End of CLAUDE.md — SignalPulse AI*
