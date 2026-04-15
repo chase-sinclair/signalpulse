@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import KpiCard from '@/components/KpiCard';
 import TrendChart from '@/components/TrendChart';
 import IntentScoreBadge from '@/components/IntentScoreBadge';
@@ -188,9 +189,11 @@ function TopToolsList({ tags, loading }: { tags: { tag: string; mentions: number
 }
 
 // ── Velocity alert card ────────────────────────────────────────────────────────
-function VelocityCard({ company }: { company: VelocityCompany }) {
+function VelocityCard({ company, onClick }: { company: VelocityCompany; onClick: () => void }) {
   return (
     <div
+      onClick={onClick}
+      title={`View ${company.company_name} signals on Leads page`}
       style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border)',
@@ -199,6 +202,16 @@ function VelocityCard({ company }: { company: VelocityCompany }) {
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
+        cursor: 'pointer',
+        transition: 'border-color 150ms, background 150ms',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--accent)';
+        e.currentTarget.style.background = 'var(--bg-elevated)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border)';
+        e.currentTarget.style.background = 'var(--bg-surface)';
       }}
     >
       {/* Company name + signal count */}
@@ -259,6 +272,7 @@ function VelocityCard({ company }: { company: VelocityCompany }) {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function IntelligencePage() {
+  const router = useRouter();
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [velocity, setVelocity] = useState<VelocityData | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -471,7 +485,11 @@ export default function IntelligencePage() {
               }}
             >
               {velocity!.companies.map((company) => (
-                <VelocityCard key={company.company_name} company={company} />
+                <VelocityCard
+                  key={company.company_name}
+                  company={company}
+                  onClick={() => router.push(`/?search=${encodeURIComponent(company.company_name)}`)}
+                />
               ))}
             </div>
           )}
