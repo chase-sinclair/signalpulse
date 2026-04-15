@@ -164,7 +164,7 @@ export default function DashboardPage() {
   const kpi = useMemo(() => ({
     total:     signals.length,
     hotLeads:  signals.filter((s) => s.is_hot_lead).length,
-    avgScore:  mean(signals.map((s) => s.intent_score)),
+    avgScore:  mean(signals.map((s) => s.computed_score ?? s.intent_score)),
     companies: new Set(signals.map((s) => s.company_name)).size,
   }), [signals]);
 
