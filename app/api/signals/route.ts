@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         job_title:       signal.job_title,
         raw_description: signal.raw_description,
         tech_stack:      signal.tech_stack as string[],
+        created_at:      signal.created_at,
       });
       return {
         ...signal,

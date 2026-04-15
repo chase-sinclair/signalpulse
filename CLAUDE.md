@@ -163,10 +163,14 @@ Scores computed client-side in `lib/scoring.ts` — not stored in DB. `computed_
 
 | Component | Max | Logic |
 |---|---|---|
-| `implementation_signal` | 3 | Named tool + impl keyword in title = 3, impl only = 2, tool only = 1 |
-| `tool_specificity` | 3 | Uses `tech_stack[]` length (OpenAI-extracted). Min(3, length) |
-| `buying_window` | 2 | URGENCY_TERMS + REPLACEMENT_SIGNALS in description. Maintenance terms → 0 |
-| `pain_points` | 2 | PAIN_POINT_TERMS in description. 3+ = 2, 1-2 = 1 |
+| `implementation_signal` | 3 | Named tool + impl/transform keyword in **title** = 3, keyword in title only = 2, tool in title OR keyword in description = 1 |
+| `tool_specificity` | 3 | Named tool in `tech_stack[]` AND title = 3, in stack only = 2, untracked tools = 1, none = 0 |
+| `buying_window` | 2 | URGENCY_TERMS + REPLACEMENT_SIGNALS in description. 2+ = 2, 1 = 1. Maintenance terms → 0 |
+| `recency` | 2 | < 3 days = 2, 3–14 days = 1, 14+ days = 0 |
+
+**IMPL_KEYWORDS** (checked in both title and description): `implementation`, `implementing`, `migrate`, `migration`, `rollout`, `deployment`, `deploying`, `transformation`, `transform`, `transforming`, `adoption`, `adopting`, `new system`, `new platform`, `new solution`, `new erp`, `new crm`, `go-live`, `go live`, `overhaul`, `modernization`, `modernising`, `consolidation`, `integration project`, `system change`, `system upgrade`, `phase 1`, `phase one`
+
+Score tiers: green ≥ 8, amber ≥ 5, red < 5.
 
 `computeSeniorityLabel()` returns `EXEC | SR | IC | null` — displayed as UI badge only, not part of score.
 
@@ -210,22 +214,21 @@ Scores computed client-side in `lib/scoring.ts` — not stored in DB. `computed_
 
 ---
 
-### [2026-04-15] — Scoring Criteria Overhaul — Completed by: 🤖 Claude Code
+### [2026-04-15] — Scoring Overhaul v2 + Max Score = 10 — Completed by: 🤖 Claude Code
 
 **What was built:**
-- `lib/scoring.ts` — Removed `seniority` from score. New components: `implementation_signal`, `tool_specificity`, `buying_window`, `pain_points`. Added `REPLACEMENT_SIGNALS`, `PAIN_POINT_TERMS`. Added `computeSeniorityLabel()`.
-- `lib/types.ts` — `ScoreComponents` updated. Added `seniority_label?` to `JobSignal`.
-- `app/api/signals/route.ts` — `seniority_label` added to enriched output.
-- `components/ScoreBreakdown.tsx` — Labels updated to match new components.
-- `components/LeadsTable.tsx` — Seniority rendered as `EXEC/SR/IC` indigo chip next to job title.
+- `lib/scoring.ts` — Rewrote all components. Dropped `pain_points` (unreliable with truncated descriptions). Added `recency` (0–2, based on `created_at`). Expanded `IMPL_KEYWORDS` to include transformation/adoption language. Fixed `tool_specificity` from tag-count to specificity (tool in title+stack=3, stack only=2). `implementation_signal` now checks both title and description.
+- `lib/types.ts` — `ScoreComponents` updated (pain_points removed, recency added). `ScoringInput` now requires `created_at`.
+- `app/api/signals/route.ts` — passes `created_at` to `computeScoreComponents`.
+- `components/ScoreBreakdown.tsx`, `IntentScoreBadge.tsx` — thresholds restored to /10 scale (green ≥8, amber ≥5).
+- `app/methodology/page.tsx` — updated to reflect 4 components, /10 max.
 
 **Key decisions:**
-- Seniority removed from score — measures who to contact, not whether a buying window exists
-- `tool_specificity` uses `tech_stack[]` (OpenAI-curated) instead of raw text scan
-- `buying_window` expands urgency to include replacement/greenfield language
-- `pain_points` added — pre-purchase problem language is a real buying signal
+- Recency added to reach max 10 — fresh leads are genuinely more actionable, scores decay naturally
+- `pain_points` dropped — SerpApi truncates descriptions too aggressively
+- `implementation_signal` checks description as fallback (+1) when title has no signal
 
-**Next step:** Priority 4 — Visualization Improvements (sparklines, velocity badges). No schema changes needed.
+**Next step:** Priority 5 — Visualization Improvements (sparklines, velocity badges). No schema changes needed.
 
 ---
 *End of CLAUDE.md — SignalPulse AI*

@@ -52,6 +52,7 @@ type ScoringInput = {
   job_title:       string;
   raw_description: string | null;
   tech_stack:      string[];
+  created_at:      string;  // ISO string — used for recency scoring
 };
 
 // ── computeSeniorityLabel ─────────────────────────────────────────────────────
@@ -145,19 +146,37 @@ export function computeScoreComponents(signal: ScoringInput): ScoreComponents {
     windowReason = 'No active buying signals in description';
   }
 
+  // recency (0-2): fresh signals are more actionable — a lead from yesterday
+  // is worth more than one from three weeks ago. Always available, no truncation risk.
+  const ageHours = (Date.now() - new Date(signal.created_at).getTime()) / 3_600_000;
+  let recencyScore: number;
+  let recencyReason: string;
+  if (ageHours < 72) {
+    recencyScore  = 2;
+    recencyReason = 'Added < 3 days ago — prime outreach window';
+  } else if (ageHours < 336) {
+    recencyScore  = 1;
+    recencyReason = 'Added 3–14 days ago — follow-up window';
+  } else {
+    recencyScore  = 0;
+    recencyReason = 'Added 14+ days ago — potentially stale';
+  }
+
   return {
-    implementation_signal: { score: implScore,   max: 3, reason: implReason },
-    tool_specificity:      { score: stackScore,  max: 3, reason: stackReason },
-    buying_window:         { score: windowScore, max: 2, reason: windowReason },
+    implementation_signal: { score: implScore,     max: 3, reason: implReason },
+    tool_specificity:      { score: stackScore,    max: 3, reason: stackReason },
+    buying_window:         { score: windowScore,   max: 2, reason: windowReason },
+    recency:               { score: recencyScore,  max: 2, reason: recencyReason },
   };
 }
 
 // ── computeIntentScore ────────────────────────────────────────────────────────
-// Max: 8 (3 + 3 + 2). pain_points removed — unreliable with truncated descriptions.
+// Max: 10 (3 + 3 + 2 + 2).
 export function computeIntentScore(components: ScoreComponents): number {
   return (
     components.implementation_signal.score +
     components.tool_specificity.score +
-    components.buying_window.score
+    components.buying_window.score +
+    components.recency.score
   );
 }

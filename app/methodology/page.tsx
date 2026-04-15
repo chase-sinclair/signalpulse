@@ -39,6 +39,17 @@ const SCORE_COMPONENTS = [
       { score: 0, label: 'No signals, or maintenance language found', example: '"support existing Salesforce", "ongoing BAU"' },
     ],
   },
+  {
+    name: 'Recency',
+    max: 2,
+    color: '#10b981',
+    description: 'A lead posted yesterday is more actionable than one from three weeks ago. Scores decay as time passes — always computed from the date the signal was added to the DB.',
+    rules: [
+      { score: 2, label: 'Added < 3 days ago', example: 'Prime outreach window' },
+      { score: 1, label: 'Added 3–14 days ago', example: 'Follow-up window' },
+      { score: 0, label: 'Added 14+ days ago', example: 'Potentially stale' },
+    ],
+  },
 ];
 
 const PIPELINE_STEPS = [
@@ -251,7 +262,7 @@ export default function MethodologyPage() {
             Intent Score (0–10)
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Every signal gets a deterministic score computed from three components (max 8).
+            Every signal gets a deterministic score computed from four components (max 10).
             Scores are calculated client-side at query time — not stored — so they always reflect the
             latest keyword lists. Seniority is extracted but <em>not</em> scored: a junior
             implementation hire is equally valid evidence of a buying window as a director-level one.
@@ -276,6 +287,7 @@ export default function MethodologyPage() {
               { max: 3, color: '#6366f1', label: 'Impl.' },
               { max: 3, color: '#06b6d4', label: 'Tools' },
               { max: 2, color: '#f59e0b', label: 'Window' },
+              { max: 2, color: '#10b981', label: 'Recency' },
             ].map((c) => (
               <div key={c.label} style={{ flex: c.max, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ height: 6, borderRadius: 3, background: c.color, opacity: 0.7 }} />
@@ -287,7 +299,7 @@ export default function MethodologyPage() {
           </div>
           <div style={{ flexShrink: 0, textAlign: 'right' }}>
             <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>
-              /8
+              /10
             </span>
           </div>
         </div>
