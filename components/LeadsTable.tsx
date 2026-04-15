@@ -108,6 +108,14 @@ function TechChips({ tags }: { tags: string[] }) {
   );
 }
 
+// ── Recency indicator — traffic light for signal freshness ────────────────────
+function recencyInfo(createdAt: string): { color: string; label: string } {
+  const ageHours = (Date.now() - new Date(createdAt).getTime()) / 3_600_000;
+  if (ageHours < 48)  return { color: '#10b981', label: 'Prime outreach window (< 48h)' };
+  if (ageHours < 168) return { color: '#f59e0b', label: 'Follow-up window (3–7 days)' };
+  return { color: '#475569', label: 'Potentially stale (7+ days)' };
+}
+
 // ── Sort icon ────────────────────────────────────────────────────────────────
 function SortIcon({ field, current, dir }: { field: SortField; current: SortField; dir: SortDir }) {
   if (field !== current) return <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>↕</span>;
@@ -376,16 +384,30 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         </div>
                       </td>
 
-                      {/* Posted — raw TEXT from DB, displayed as-is */}
+                      {/* Added — with recency traffic-light dot */}
                       <td style={{ ...tdStyle, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        <span
-                          style={{
-                            fontFamily: 'var(--font-dm-mono), monospace',
-                            fontSize: 11,
-                          }}
-                        >
-                          {signal.posted_at ?? '—'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {(() => {
+                            const r = recencyInfo(signal.created_at);
+                            return (
+                              <span
+                                title={r.label}
+                                style={{
+                                  display: 'inline-block',
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: '50%',
+                                  background: r.color,
+                                  flexShrink: 0,
+                                  boxShadow: r.color === '#10b981' ? `0 0 5px ${r.color}` : 'none',
+                                }}
+                              />
+                            );
+                          })()}
+                          <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 11 }}>
+                            {signal.posted_at ?? '—'}
+                          </span>
+                        </div>
                       </td>
                     </tr>
 
