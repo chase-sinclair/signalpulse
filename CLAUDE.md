@@ -203,7 +203,7 @@ font-body:    'Geist', sans-serif;
 | Priority | Feature | Status | Owner |
 |---|---|---|---|
 | 1 | Signal Categories (multi-family queries) | ✅ Complete | Human + Claude |
-| 2 | Explainable Scoring (score_components JSONB) | ⬜ Pending | Claude Code |
+| 2 | Explainable Scoring (score_components JSONB) | ✅ Complete | Claude Code |
 | 3 | Market Intelligence Tab | ✅ Complete | Claude Code |
 | 4 | Visualization Improvements (sparklines, velocity badges) | ⬜ Pending | Claude Code |
 | 5 | Slack/Email Alerts (n8n hot lead notifications) | ⬜ Pending | Human |
@@ -236,9 +236,151 @@ Human must run this and confirm before Claude Code builds the UI.
 
 ---
 
+### Component Rules
+
+**title_match (0-3)**
+Check `job_title` case-insensitive:
+- 3 → contains a named tool AND ("implementation" OR "migration" OR "rollout")
+- 2 → contains "implementation" OR "migration" OR "rollout" without named tool
+- 1 → contains a named tool without implementation signal
+- 0 → neither
+
+**stack_match (0-3)**
+Count named tool mentions in `raw_description` case-insensitive:
+- 3 → 3+ named tools found
+- 2 → 2 named tools found
+- 1 → 1 named tool found
+- 0 → none found
+
+**seniority (0-2)**
+Check `job_title` case-insensitive:
+- 2 → contains: vp, director, head of, chief, cfo, cto, cio, controller, president
+- 1 → contains: manager, senior, sr., lead, principal
+- 0 → contains: analyst, coordinator, associate, intern, junior, or no signal
+
+**urgency (0-2)**
+Count urgency terms in `raw_description` case-insensitive:
+- 2 → 2+ terms found
+- 1 → 1 term found
+- 0 → none found OR contains: "maintain", "support existing", "ongoing support"
+
+### Keyword Lists (define as constants in lib/scoring.ts)
+
+```typescript
+const NAMED_TOOLS = [
+  'netsuite', 'workday', 'salesforce', 'hubspot', 'okta', 'crowdstrike',
+  'snowflake', 'databricks', 'rippling', 'sap', 'oracle', 'sage intacct',
+  'quickbooks', 'dynamics', 'servicenow', 'coupa', 'concur', 'blackline',
+  'brex', 'ramp', 'stripe', 'adp', 'kronos', 'workato', 'mulesoft',
+  'dbt', 'fivetran', 'looker', 'tableau', 'power bi'
+]
+
+const URGENCY_TERMS = [
+  'go-live', 'go live', 'migration', 'cutover', 'starting now',
+  'new implementation', 'phase 1', 'rollout', 'launch', 'replacing',
+  'immediately', 'urgent', 'as soon as possible', 'asap'
+]
+```
+
+### Files to Create/Modify
+
+**New: `lib/scoring.ts`**
+- Export `computeScoreComponents(signal: Pick<JobSignal, 'job_title' | 'raw_description' | 'tech_stack'>): ScoreComponents`
+- Export `computeIntentScore(components: ScoreComponents): number`
+- All keyword lists as exported constants at top of file
+- Pure functions — no side effects, no imports from Next.js
+
+**Update: `lib/types.ts`**
+Add:
+```typescript
+export interface ScoreComponent {
+  score: number;
+  max: number;
+  reason: string;
+}
+
+export interface ScoreComponents {
+  title_match: ScoreComponent;
+  stack_match: ScoreComponent;
+  seniority:   ScoreComponent;
+  urgency:     ScoreComponent;
+}
+```
+Add to `JobSignal`:
+```typescript
+score_components: ScoreComponents | null;
+```
+
+**Update: `app/api/signals/route.ts`**
+After fetching from Supabase, enrich each signal:
+```typescript
+import { computeScoreComponents, computeIntentScore } from '@/lib/scoring'
+
+const enriched = (data ?? []).map(signal => {
+  const components = computeScoreComponents(signal)
+  return {
+    ...signal,
+    score_components: components,
+    computed_score: computeIntentScore(components)
+  }
+})
+```
+Return `enriched` instead of raw `data`.
+
+**New: `components/ScoreBreakdown.tsx`**
+Props: `{ components: ScoreComponents; computedScore: number }`
+- 4 rows: label | dot display | score fraction | reason text
+- Dot display: filled ● vs empty ○, colored green/amber/red
+- Labels: "Title Signal", "Tech Stack", "Seniority", "Urgency"
+- Subtle slide-down animation 150ms
+- Null-safe: renders nothing if components is null
+
+**Update: `components/LeadsTable.tsx`**
+- `IntentScoreBadge` becomes clickable — toggles `ScoreBreakdown`
+- Add chevron icon (down/up) next to badge
+- Only one row expanded at a time
+- Pass `score_components` and `computed_score` from signal to breakdown
+
+**Update: `components/IntentScoreBadge.tsx`**
+- Accept optional `onClick` and `isExpanded` props
+- Show chevron when `onClick` is provided
+- Cursor pointer, subtle hover ring
+
+### Design
+- Match Section 5 color palette exactly
+- Dot colors: green if score === max, amber if partial, red if 0
+- Reason text: `--text-secondary`, 12px
+- Panel background: `--bg-elevated`, border-top `--border`
+- Mobile: full width, stacks cleanly
+
+---
+
 # MEMORY LOG
 
 > Most recent entry first. Keep only last 2-3 entries — archive older ones.
+
+---
+
+### [2026-04-14] — Priority 2: Explainable Scoring — Completed by: 🤖 Claude Code
+
+**What was built:**
+- `lib/scoring.ts` — `computeScoreComponents()`, `computeIntentScore()`, `NAMED_TOOLS`, `URGENCY_TERMS` constants
+- `lib/types.ts` — Added `ScoreComponent`, `ScoreComponents` interfaces; added `score_components?` and `computed_score?` to `JobSignal`
+- `app/api/signals/route.ts` — Enriches each signal with `score_components` + `computed_score` after Supabase fetch
+- `components/ScoreBreakdown.tsx` — 4-row breakdown panel with dot display, score fraction, reason text, 150ms slide-down animation
+- `components/IntentScoreBadge.tsx` — Now accepts `onClick`/`isExpanded` props; renders as button with rotating ▾ chevron
+- `components/LeadsTable.tsx` — `expandedId` state for single-row expansion; ScoreBreakdown renders in full-width row below signal
+
+**Key decisions:**
+- `computed_score` (deterministic, client-computed) replaces DB `intent_score` as the display source of truth in badge + sort
+- Score components computed at API route level, not stored — no DB writes needed for this feature
+- `score_components` and `computed_score` added as optional fields on `JobSignal` (not always present on raw DB rows)
+
+**Known issues:**
+- None
+
+**Next step:**
+- Priority 4 (Visualization Improvements — sparklines, velocity badges) — no schema changes needed
 
 ---
 

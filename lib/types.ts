@@ -1,3 +1,17 @@
+// ─── Scoring types ──────────────────────────────────────────────────────────
+export interface ScoreComponent {
+  score: number;
+  max: number;
+  reason: string;
+}
+
+export interface ScoreComponents {
+  title_match: ScoreComponent;
+  stack_match: ScoreComponent;
+  seniority:   ScoreComponent;
+  urgency:     ScoreComponent;
+}
+
 // ─── Primitive types ────────────────────────────────────────────────────────
 export type JobFamily =
   | 'Finance'
@@ -28,6 +42,8 @@ export interface JobSignal {
   job_family: JobFamily | null;
   tech_stack: string[];       // Populated by signals_with_tags view
   intent_score: number | null;
+  score_components?: ScoreComponents | null; // Computed by API route — not stored in DB
+  computed_score?: number;                    // Sum of score_components — display source of truth
   sales_hook: string | null;
   is_hot_lead: boolean;
   posted_at: string | null;   // TEXT in DB — SerpApi relative strings e.g. "4 days ago"

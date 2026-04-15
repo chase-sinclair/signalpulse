@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { JobSignal } from '@/lib/types';
 import { truncate, companyInitials } from '@/lib/utils';
 import IntentScoreBadge from './IntentScoreBadge';
+import ScoreBreakdown from './ScoreBreakdown';
 
 // ── Family pill colors ───────────────────────────────────────────────────────
 const FAMILY_STYLES: Record<string, { bg: string; color: string }> = {
@@ -121,6 +122,8 @@ function SortIcon({ field, current, dir }: { field: SortField; current: SortFiel
 export default function LeadsTable({ signals, loading, onReset }: Props) {
   const [sortField, setSortField] = useState<SortField>('intent_score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  // Only one row can be expanded at a time — null means all collapsed
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -133,8 +136,9 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
 
   const sorted = [...signals].sort((a, b) => {
     if (sortField === 'intent_score') {
-      const aVal = a.intent_score ?? 0;
-      const bVal = b.intent_score ?? 0;
+      // Sort by computed_score — the deterministic display source of truth
+      const aVal = a.computed_score ?? a.intent_score ?? 0;
+      const bVal = b.computed_score ?? b.intent_score ?? 0;
       return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
     }
     // created_at — lexicographic sort works on ISO strings
@@ -247,10 +251,15 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                   const familyStyle = signal.job_family
                     ? (FAMILY_STYLES[signal.job_family] ?? FAMILY_STYLES.Other)
                     : FAMILY_STYLES.Other;
+                  const isExpanded = expandedId === signal.id;
+
+                  function toggleExpanded() {
+                    setExpandedId(isExpanded ? null : signal.id);
+                  }
 
                   return (
+                    <Fragment key={signal.id}>
                     <tr
-                      key={signal.id}
                       style={{
                         background: idx % 2 === 0 ? 'transparent' : 'rgba(26,26,36,0.3)',
                         transition: 'background 100ms',
@@ -260,6 +269,7 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background =
+                          isExpanded ? 'var(--bg-elevated)' :
                           idx % 2 === 0 ? 'transparent' : 'rgba(26,26,36,0.3)';
                       }}
                     >
@@ -325,9 +335,13 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         )}
                       </td>
 
-                      {/* Intent Score */}
+                      {/* Intent Score — clickable to expand breakdown */}
                       <td style={tdStyle}>
-                        <IntentScoreBadge score={signal.intent_score} />
+                        <IntentScoreBadge
+                          score={signal.computed_score ?? signal.intent_score}
+                          onClick={toggleExpanded}
+                          isExpanded={isExpanded}
+                        />
                       </td>
 
                       {/* Sales Hook — tooltip on hover */}
@@ -354,6 +368,22 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         </span>
                       </td>
                     </tr>
+
+                    {/* Score breakdown — full-width row, visible only when expanded */}
+                    {isExpanded && (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{ padding: 0, borderBottom: '1px solid var(--border)' }}
+                        >
+                          <ScoreBreakdown
+                            components={signal.score_components ?? null}
+                            computedScore={signal.computed_score ?? 0}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })
               )}

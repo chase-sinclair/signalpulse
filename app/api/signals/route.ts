@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabase';
 import type { JobFamily } from '@/lib/types';
+import { computeScoreComponents, computeIntentScore } from '@/lib/scoring';
 
 export const dynamic = 'force-dynamic'; // Never cache — data updates daily
 
@@ -45,9 +46,24 @@ export async function GET(request: NextRequest) {
         )
       : (data ?? []);
 
+    // Enrich each signal with deterministic score components.
+    // computed_score replaces intent_score as the display source of truth.
+    const enriched = filtered.map(signal => {
+      const components = computeScoreComponents({
+        job_title:       signal.job_title,
+        raw_description: signal.raw_description,
+        tech_stack:      signal.tech_stack as string[],
+      });
+      return {
+        ...signal,
+        score_components: components,
+        computed_score:   computeIntentScore(components),
+      };
+    });
+
     return NextResponse.json({
-      signals: filtered,
-      count: filtered.length,
+      signals: enriched,
+      count: enriched.length,
     });
 
   } catch (err) {
