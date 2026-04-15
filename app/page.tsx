@@ -218,6 +218,7 @@ export default function DashboardPage() {
               if (window.innerWidth < 768) setSidebarOpen(false);
             }}
             availableTags={availableTags}
+            signals={signals}
           />
         </div>
       </div>

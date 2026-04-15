@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { DashboardFilters, JobFamily } from '@/lib/types';
+import type { DashboardFilters, JobFamily, JobSignal } from '@/lib/types';
 
 const ALL_FAMILIES: JobFamily[] = [
   'Finance',
@@ -24,9 +24,19 @@ interface Props {
   filters: DashboardFilters;
   onChange: (f: DashboardFilters) => void;
   availableTags: string[];
+  // Current signals — used to compute how many results each filter option yields
+  signals: JobSignal[];
 }
 
-export default function FilterSidebar({ filters, onChange, availableTags }: Props) {
+export default function FilterSidebar({ filters, onChange, availableTags, signals }: Props) {
+  // Compute how many of the currently-loaded signals have each family or tag.
+  // This gives the user context: "given your other filters, N results also match this."
+  const familyCounts = Object.fromEntries(
+    ALL_FAMILIES.map((f) => [f, signals.filter((s) => s.job_family === f).length])
+  );
+  const tagCounts = Object.fromEntries(
+    availableTags.map((t) => [t, signals.filter((s) => s.tech_stack.includes(t)).length])
+  );
   // Local search state — debounced 300ms before propagating upward
   const [localSearch, setLocalSearch] = useState(filters.search);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,34 +189,45 @@ export default function FilterSidebar({ filters, onChange, availableTags }: Prop
         {/* Job Family */}
         <span style={sectionLabel}>Job Family</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {ALL_FAMILIES.map((family) => (
-            <label
-              key={family}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                color: filters.job_families.includes(family)
-                  ? 'var(--text-primary)'
-                  : 'var(--text-secondary)',
-                fontSize: 13,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={filters.job_families.includes(family)}
-                onChange={() => toggleFamily(family)}
+          {ALL_FAMILIES.map((family) => {
+            const count = familyCounts[family] ?? 0;
+            const active = filters.job_families.includes(family);
+            return (
+              <label
+                key={family}
                 style={{
-                  accentColor: 'var(--accent)',
-                  width: 14,
-                  height: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
                   cursor: 'pointer',
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: 13,
+                  opacity: count === 0 && !active ? 0.4 : 1,
                 }}
-              />
-              {family}
-            </label>
-          ))}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => toggleFamily(family)}
+                    style={{ accentColor: 'var(--accent)', width: 14, height: 14, cursor: 'pointer' }}
+                  />
+                  {family}
+                </div>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 10,
+                    color: count === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {count}
+                </span>
+              </label>
+            );
+          })}
         </div>
 
         <div style={divider} />
@@ -219,10 +240,12 @@ export default function FilterSidebar({ filters, onChange, availableTags }: Prop
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {availableTags.map((tag) => {
               const active = filters.tags.includes(tag);
+              const count = tagCounts[tag] ?? 0;
               return (
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
+                  title={`${count} signal${count !== 1 ? 's' : ''} match`}
                   style={{
                     fontFamily: 'var(--font-dm-mono), monospace',
                     fontSize: 11,
@@ -230,12 +253,18 @@ export default function FilterSidebar({ filters, onChange, availableTags }: Prop
                     borderRadius: 4,
                     border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
                     background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
-                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: active ? 'var(--accent)' : count === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
                     cursor: 'pointer',
                     transition: 'all 150ms',
+                    opacity: count === 0 && !active ? 0.4 : 1,
                   }}
                 >
                   {tag}
+                  {count > 0 && (
+                    <span style={{ marginLeft: 4, color: active ? 'rgba(99,102,241,0.7)' : 'var(--text-muted)' }}>
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
