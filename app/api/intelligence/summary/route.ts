@@ -18,10 +18,10 @@ export async function GET() {
       return NextResponse.json({ error: familyError.message }, { status: 500 });
     }
 
-    // Fetch tags joined with company info — needed for signal count AND distinct company count
+    // Fetch tags joined with signal info — company name for breadth + intent_score for bubble chart
     const { data: tagRows, error: tagError } = await supabase
       .from('signal_tags')
-      .select('tag, job_signals(company_name)');
+      .select('tag, job_signals(company_name, intent_score)');
 
     if (tagError) {
       console.error('[intelligence/summary] tag query error:', tagError.message);
@@ -39,20 +39,31 @@ export async function GET() {
       .map(([family, count]) => ({ family, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Aggregate top 10 tags with mention count + distinct company count
-    const tagStats: Record<string, { mentions: number; companies: Set<string> }> = {};
+    // Aggregate top tags with mention count, distinct company count, and avg intent score
+    const tagStats: Record<string, { mentions: number; companies: Set<string>; scores: number[] }> = {};
     for (const row of tagRows ?? []) {
       if (!row.tag) continue;
-      if (!tagStats[row.tag]) tagStats[row.tag] = { mentions: 0, companies: new Set() };
+      if (!tagStats[row.tag]) tagStats[row.tag] = { mentions: 0, companies: new Set(), scores: [] };
       tagStats[row.tag].mentions += 1;
       // job_signals is an object (FK relation), not an array
-      const companyName = (row.job_signals as { company_name: string } | null)?.company_name;
-      if (companyName) tagStats[row.tag].companies.add(companyName);
+      const signal = row.job_signals as { company_name: string; intent_score: number | null } | null;
+      if (signal?.company_name) tagStats[row.tag].companies.add(signal.company_name);
+      if (signal?.intent_score != null) tagStats[row.tag].scores.push(signal.intent_score);
     }
-    const topTags = Object.entries(tagStats)
-      .map(([tag, s]) => ({ tag, mentions: s.mentions, companies: s.companies.size }))
-      .sort((a, b) => b.mentions - a.mentions)
-      .slice(0, 10);
+    const allTagsSorted = Object.entries(tagStats)
+      .map(([tag, s]) => ({
+        tag,
+        mentions: s.mentions,
+        companies: s.companies.size,
+        avg_score: s.scores.length > 0
+          ? Math.round((s.scores.reduce((a, b) => a + b, 0) / s.scores.length) * 10) / 10
+          : null,
+      }))
+      .sort((a, b) => b.mentions - a.mentions);
+
+    const topTags = allTagsSorted.slice(0, 10);
+    // Bubble chart uses top 12 by mention count (for visual richness)
+    const bubbleData = allTagsSorted.slice(0, 12);
 
     // Derive KPI values from the aggregated data
     const totalSignals      = familyRows?.length ?? 0;
@@ -64,6 +75,7 @@ export async function GET() {
       kpi: { totalSignals, familiesActive, mostActiveTool, hottestSector },
       familyBreakdown,
       topTags,
+      bubbleData,
     });
 
   } catch (err) {
