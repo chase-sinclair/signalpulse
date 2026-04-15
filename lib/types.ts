@@ -9,7 +9,6 @@ export interface ScoreComponents {
   implementation_signal: ScoreComponent;
   tool_specificity:      ScoreComponent;
   buying_window:         ScoreComponent;
-  pain_points:           ScoreComponent;
 }
 
 // ─── Primitive types ────────────────────────────────────────────────────────

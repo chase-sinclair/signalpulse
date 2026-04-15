@@ -21,10 +21,11 @@ export default function IntentScoreBadge({ score, onClick, isExpanded }: Props) 
     );
   }
 
+  // Thresholds calibrated to the 8-point scale (max score = 8)
   const color =
-    score >= 8
+    score >= 6
       ? 'var(--score-high)'
-      : score >= 5
+      : score >= 4
       ? 'var(--score-mid)'
       : 'var(--score-low)';
 

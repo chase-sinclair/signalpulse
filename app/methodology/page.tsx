@@ -8,23 +8,23 @@ const SCORE_COMPONENTS = [
     name: 'Implementation Signal',
     max: 3,
     color: '#6366f1',
-    description: 'Analyses the job title for named tools + implementation keywords.',
+    description: 'Checks both the job title and description for named tools + implementation/transformation keywords. Transformation and adoption language is treated as equally strong as explicit "implementation" — it signals a company actively changing systems.',
     rules: [
-      { score: 3, label: 'Named tool + implementation keyword in title', example: '"NetSuite Implementation Manager"' },
-      { score: 2, label: 'Implementation keyword only', example: '"ERP Migration Lead"' },
-      { score: 1, label: 'Named tool only', example: '"Salesforce Administrator"' },
-      { score: 0, label: 'No signal', example: '"Business Analyst"' },
+      { score: 3, label: 'Named tool + impl/transform keyword in title', example: '"NetSuite Implementation Manager"' },
+      { score: 2, label: 'Impl/transform keyword in title only', example: '"ERP Transformation Lead", "Digital Adoption Manager"' },
+      { score: 1, label: 'Named tool in title, or impl/transform keyword in description', example: '"Salesforce Administrator" or description mentions "go-live"' },
+      { score: 0, label: 'No implementation or transformation signal', example: '"Business Analyst"' },
     ],
   },
   {
     name: 'Tool Specificity',
     max: 3,
     color: '#06b6d4',
-    description: 'Uses the OpenAI-extracted tech stack to count named tools in the role. Breadth of tools = stronger buying context.',
+    description: 'Measures how specifically this role maps to a known tool. A dedicated role with the tool in both the title and the OpenAI-extracted tech stack is the strongest signal.',
     rules: [
-      { score: 3, label: '3+ tools identified in description', example: 'NetSuite, Workday, Coupa' },
-      { score: 2, label: '2 tools identified', example: 'Salesforce, HubSpot' },
-      { score: 1, label: '1 tool identified', example: 'Snowflake' },
+      { score: 3, label: 'Named tool in both title and tech stack', example: '"NetSuite Implementation Manager" + tech_stack: [netsuite]' },
+      { score: 2, label: 'Named tool in tech stack but not in title', example: 'Title: "Systems Analyst", tech_stack: [salesforce]' },
+      { score: 1, label: 'Tech stack has tools but none are tracked', example: 'tech_stack: [power automate]' },
       { score: 0, label: 'No tools identified', example: '—' },
     ],
   },
@@ -32,22 +32,11 @@ const SCORE_COMPONENTS = [
     name: 'Buying Window',
     max: 2,
     color: '#f59e0b',
-    description: 'Scans the description for timeline commitments, replacement signals, and new-role language. Maintenance roles score 0.',
+    description: 'Scans the description for replacement signals, urgency language, and new-role indicators. Maintenance/BAU roles are explicitly zeroed out.',
     rules: [
-      { score: 2, label: '2+ buying signals in description', example: '"go-live Q1", "replacing legacy ERP"' },
-      { score: 1, label: '1 buying signal', example: '"new implementation"' },
-      { score: 0, label: 'No signals or maintenance language', example: '"support existing Salesforce"' },
-    ],
-  },
-  {
-    name: 'Pain Points',
-    max: 2,
-    color: '#10b981',
-    description: 'Looks for problem-language that signals the company is describing the problem your software solves.',
-    rules: [
-      { score: 2, label: '3+ pain indicators', example: '"manual", "siloed", "no visibility"' },
-      { score: 1, label: '1-2 pain indicators', example: '"spreadsheet-based"' },
-      { score: 0, label: 'No pain language', example: '—' },
+      { score: 2, label: '2+ buying signals in description', example: '"replacing legacy ERP", "greenfield implementation"' },
+      { score: 1, label: '1 buying signal', example: '"newly created role"' },
+      { score: 0, label: 'No signals, or maintenance language found', example: '"support existing Salesforce", "ongoing BAU"' },
     ],
   },
 ];
@@ -262,10 +251,10 @@ export default function MethodologyPage() {
             Intent Score (0–10)
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Every signal gets a deterministic score computed from four components. Scores are calculated
-            client-side at query time — not stored — so they always reflect the latest keyword lists.
-            Seniority is extracted but <em>not</em> scored: a junior implementation hire is equally
-            valid evidence of a buying window as a director-level one.
+            Every signal gets a deterministic score computed from three components (max 8).
+            Scores are calculated client-side at query time — not stored — so they always reflect the
+            latest keyword lists. Seniority is extracted but <em>not</em> scored: a junior
+            implementation hire is equally valid evidence of a buying window as a director-level one.
           </p>
         </div>
 
@@ -287,7 +276,6 @@ export default function MethodologyPage() {
               { max: 3, color: '#6366f1', label: 'Impl.' },
               { max: 3, color: '#06b6d4', label: 'Tools' },
               { max: 2, color: '#f59e0b', label: 'Window' },
-              { max: 2, color: '#10b981', label: 'Pain' },
             ].map((c) => (
               <div key={c.label} style={{ flex: c.max, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ height: 6, borderRadius: 3, background: c.color, opacity: 0.7 }} />
@@ -299,7 +287,7 @@ export default function MethodologyPage() {
           </div>
           <div style={{ flexShrink: 0, textAlign: 'right' }}>
             <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: 22, fontWeight: 600, color: 'var(--text-primary)' }}>
-              /10
+              /8
             </span>
           </div>
         </div>

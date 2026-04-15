@@ -12,14 +12,12 @@ const LABELS: Record<keyof ScoreComponents, string> = {
   implementation_signal: 'Impl. Signal',
   tool_specificity:      'Tool Match',
   buying_window:         'Buying Window',
-  pain_points:           'Pain Points',
 };
 
 const ROW_ORDER: Array<keyof ScoreComponents> = [
   'implementation_signal',
   'tool_specificity',
   'buying_window',
-  'pain_points',
 ];
 
 function dotColor(score: number, max: number): string {
@@ -53,9 +51,9 @@ export default function ScoreBreakdown({ components, computedScore }: Props) {
   if (!components) return null;
 
   const totalColor =
-    computedScore >= 8
+    computedScore >= 6
       ? 'var(--score-high)'
-      : computedScore >= 5
+      : computedScore >= 4
       ? 'var(--score-mid)'
       : 'var(--score-low)';
 
@@ -159,7 +157,7 @@ export default function ScoreBreakdown({ components, computedScore }: Props) {
             color: totalColor,
           }}
         >
-          {computedScore}/10
+          {computedScore}/8
         </span>
       </div>
     </div>
