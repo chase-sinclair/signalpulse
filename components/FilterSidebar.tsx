@@ -72,6 +72,15 @@ export default function FilterSidebar({ filters, onChange, availableTags, signal
     onChange(DEFAULT_FILTERS);
   }
 
+  // Count how many filter dimensions are non-default so we can badge the header
+  const activeFilterCount = [
+    filters.job_families.length > 0,
+    filters.min_intent_score > 1,
+    filters.tags.length > 0,
+    filters.hot_leads_only,
+    filters.search.trim() !== '',
+  ].filter(Boolean).length;
+
   const sectionLabel: React.CSSProperties = {
     color: 'var(--text-muted)',
     fontSize: 10,
@@ -100,6 +109,64 @@ export default function FilterSidebar({ filters, onChange, availableTags, signal
       }}
     >
       <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+        {/* Sidebar header — shows active filter count and a clear link when anything is set */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                fontWeight: 500,
+              }}
+            >
+              Filters
+            </span>
+            {activeFilterCount > 0 && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  fontSize: 10,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  background: 'rgba(99,102,241,0.15)',
+                  color: 'var(--accent)',
+                  border: '1px solid rgba(99,102,241,0.25)',
+                }}
+              >
+                {activeFilterCount} active
+              </span>
+            )}
+          </div>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={reset}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
 
         {/* Search */}
         <span style={sectionLabel}>Search</span>

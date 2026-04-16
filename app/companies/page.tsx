@@ -38,10 +38,13 @@ async function getCompanyCards(): Promise<CompanyCard[]> {
   // At runtime, a many-to-one FK join returns a single object — cast via unknown.
   const rows = (data ?? []) as unknown as SnapshotRow[];
 
-  // Group snapshots by company_id, keeping the two most recent weeks
+  // Group snapshots by company_id, keeping the two most recent weeks.
+  // Skip rows where the company name contains ":" — these are department labels
+  // (e.g. "Line of Service:Advisory") that got ingested as company records by n8n.
   const byCompany = new Map<string, SnapshotRow[]>();
   for (const row of rows) {
     if (!row.company_id || !row.companies) continue;
+    if (row.companies.name.includes(':')) continue;
     const existing = byCompany.get(row.company_id) ?? [];
     if (existing.length < 2) {
       byCompany.set(row.company_id, [...existing, row]);
@@ -64,8 +67,24 @@ async function getCompanyCards(): Promise<CompanyCard[]> {
     });
   }
 
+  // Deduplicate by normalized company name — n8n can create multiple company rows
+  // for the same real-world company (e.g. "PwC" and "PwC " with trailing space).
+  // When duplicates are found, merge their signal counts into the first occurrence.
+  const dedupedMap = new Map<string, CompanyCard>();
+  for (const card of cards) {
+    const key = card.company.name.trim().toLowerCase();
+    if (dedupedMap.has(key)) {
+      const existing = dedupedMap.get(key)!;
+      existing.current_count  += card.current_count;
+      existing.previous_count += card.previous_count;
+      existing.delta = existing.current_count - existing.previous_count;
+    } else {
+      dedupedMap.set(key, { ...card });
+    }
+  }
+
   // Sort by delta descending — most-accelerating companies first
-  return cards.sort((a, b) => b.delta - a.delta);
+  return Array.from(dedupedMap.values()).sort((a, b) => b.delta - a.delta);
 }
 
 // ── Family badge colors (reuse from TrendChart) ───────────────────────────────

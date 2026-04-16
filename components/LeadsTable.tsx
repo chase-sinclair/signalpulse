@@ -339,7 +339,13 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                                 whiteSpace: 'nowrap',
                                 flexShrink: 0,
                               }}
-                              title="Seniority level"
+                              title={
+                                signal.seniority_label === 'EXEC'
+                                  ? 'EXEC — VP / Director / Head of / C-suite'
+                                  : signal.seniority_label === 'SR'
+                                  ? 'SR — Senior / Manager / Lead / Principal'
+                                  : 'IC — Analyst / Coordinator / Associate / Junior'
+                              }
                             >
                               {signal.seniority_label}
                             </span>

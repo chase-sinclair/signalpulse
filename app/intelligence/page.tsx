@@ -206,24 +206,12 @@ function TopToolsList({ tags, loading }: { tags: { tag: string; mentions: number
   );
 }
 
-// ── Tool × Intent bubble chart ────────────────────────────────────────────────
-// X = tool name, Y = avg intent score, bubble size = signal count
-function ToolBubbleChart({ data, loading }: { data: BubbleDatum[]; loading: boolean }) {
-  const WIDTH  = 580;
-  const HEIGHT = 200;
-  const PAD    = { top: 12, right: 16, bottom: 40, left: 44 };
-
-  const chartW = WIDTH  - PAD.left - PAD.right;
-  const chartH = HEIGHT - PAD.top  - PAD.bottom;
-
-  const maxMentions = Math.max(...data.map((d) => d.mentions), 1);
-  const MIN_R = 6;
-  const MAX_R = 22;
-
-  // Y axis: intent score 0–10
-  const yScale = (score: number) => chartH - (score / 10) * chartH;
-
-  const yTicks = [0, 2, 4, 6, 8, 10];
+// ── Tool Signal Quality chart ─────────────────────────────────────────────────
+// Horizontal bar chart: one row per tool, bar width = avg intent score (0–10).
+// Replaces the SVG bubble chart whose X-axis labels overlapped at 12 tools.
+function ToolScoreChart({ data, loading }: { data: BubbleDatum[]; loading: boolean }) {
+  // Sort by avg_score descending so highest-quality tools are at the top
+  const sorted = [...data].sort((a, b) => (b.avg_score ?? 0) - (a.avg_score ?? 0));
 
   return (
     <div
@@ -234,93 +222,101 @@ function ToolBubbleChart({ data, loading }: { data: BubbleDatum[]; loading: bool
         padding: '16px 20px',
       }}
     >
-      <p style={{ color: 'var(--text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
-        Tool × Intent Score
-      </p>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+          Tool Signal Quality
+        </p>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>avg intent score · signal count</span>
+      </div>
 
       {loading ? (
-        <div style={{ height: HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '80%', height: 8, borderRadius: 4, background: 'var(--bg-elevated)', animation: 'kpi-pulse 1.5s ease-in-out infinite' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 80, height: 11, borderRadius: 3, background: 'var(--bg-elevated)', animation: 'kpi-pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ flex: 1, height: 8, borderRadius: 3, background: 'var(--bg-elevated)', animation: 'kpi-pulse 1.5s ease-in-out infinite' }} />
+            </div>
+          ))}
         </div>
-      ) : data.length === 0 ? (
-        <div style={{ height: HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>No data yet</span>
-        </div>
+      ) : sorted.length === 0 ? (
+        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>No data yet</span>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <svg width={Math.max(WIDTH, data.length * 52 + PAD.left + PAD.right)} height={HEIGHT} style={{ display: 'block' }}>
-            <g transform={`translate(${PAD.left},${PAD.top})`}>
-              {/* Y-axis gridlines + labels */}
-              {yTicks.map((tick) => (
-                <g key={tick}>
-                  <line
-                    x1={0} y1={yScale(tick)}
-                    x2={chartW} y2={yScale(tick)}
-                    stroke="var(--border)" strokeWidth={1}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {sorted.map((d) => {
+            const score    = d.avg_score ?? 0;
+            const barColor = score >= 7 ? '#10b981' : score >= 4 ? '#f59e0b' : '#ef4444';
+            const barPct   = `${(score / 10) * 100}%`;
+            return (
+              <div key={d.tag} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {/* Tool name */}
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 11,
+                    color: 'var(--text-primary)',
+                    width: 100,
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={d.tag}
+                >
+                  {d.tag}
+                </span>
+                {/* Bar track */}
+                <div
+                  style={{
+                    flex: 1,
+                    height: 7,
+                    background: 'var(--bg-elevated)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: barPct,
+                      background: barColor,
+                      borderRadius: 4,
+                      opacity: 0.75,
+                      transition: 'width 400ms ease',
+                    }}
                   />
-                  <text
-                    x={-8} y={yScale(tick)}
-                    textAnchor="end" dominantBaseline="middle"
-                    style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, fill: 'var(--text-muted)' }}
-                  >
-                    {tick}
-                  </text>
-                </g>
-              ))}
-
-              {/* Y-axis label */}
-              <text
-                transform={`translate(-34,${chartH / 2}) rotate(-90)`}
-                textAnchor="middle"
-                style={{ fontFamily: 'var(--font-geist), sans-serif', fontSize: 9, fill: 'var(--text-muted)' }}
-              >
-                Avg Score
-              </text>
-
-              {/* Bubbles */}
-              {data.map((d, i) => {
-                const x = (i + 0.5) * (chartW / data.length);
-                const score = d.avg_score ?? 0;
-                const y = yScale(score);
-                const r = MIN_R + ((d.mentions / maxMentions) * (MAX_R - MIN_R));
-                const scoreColor = score >= 7 ? '#10b981' : score >= 4 ? '#f59e0b' : '#ef4444';
-                return (
-                  <g key={d.tag}>
-                    <circle
-                      cx={x} cy={y} r={r}
-                      fill={scoreColor}
-                      fillOpacity={0.18}
-                      stroke={scoreColor}
-                      strokeWidth={1.5}
-                    />
-                    {/* Score label inside bubble if it fits */}
-                    {r >= 12 && (
-                      <text
-                        x={x} y={y}
-                        textAnchor="middle" dominantBaseline="middle"
-                        style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, fill: scoreColor, fontWeight: 600 }}
-                      >
-                        {score}
-                      </text>
-                    )}
-                    {/* Tool name below */}
-                    <text
-                      x={x} y={chartH + 14}
-                      textAnchor="middle"
-                      style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, fill: 'var(--text-secondary)' }}
-                    >
-                      {d.tag.length > 10 ? d.tag.slice(0, 9) + '…' : d.tag}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
+                </div>
+                {/* Score */}
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 11,
+                    color: barColor,
+                    width: 28,
+                    textAlign: 'right',
+                    flexShrink: 0,
+                  }}
+                >
+                  {score.toFixed(1)}
+                </span>
+                {/* Signal count */}
+                <span
+                  style={{
+                    fontFamily: 'var(--font-dm-mono), monospace',
+                    fontSize: 10,
+                    color: 'var(--text-muted)',
+                    width: 36,
+                    textAlign: 'right',
+                    flexShrink: 0,
+                  }}
+                  title={`${d.mentions} signal${d.mentions !== 1 ? 's' : ''} across ${d.companies} ${d.companies === 1 ? 'company' : 'companies'}`}
+                >
+                  {d.mentions}×
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-        Bubble size = signal count · Y = avg intent score · Color: green ≥ 7, amber ≥ 4, red &lt; 4
-      </p>
     </div>
   );
 }
@@ -550,8 +546,8 @@ export default function IntelligencePage() {
           </div>
         </div>
 
-        {/* ── Tool × Intent bubble chart ─────────────────────────────────── */}
-        <ToolBubbleChart
+        {/* ── Tool Signal Quality chart ───────────────────────────────────── */}
+        <ToolScoreChart
           data={summary?.bubbleData ?? []}
           loading={summaryLoading}
         />

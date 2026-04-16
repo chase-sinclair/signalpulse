@@ -311,6 +311,76 @@ export default function MethodologyPage() {
         </div>
       </section>
 
+      {/* ── Seniority badges ───────────────────────────────────────────────── */}
+      <section>
+        <h2
+          style={{
+            fontSize: 13,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: 'var(--text-muted)',
+            marginBottom: 16,
+            fontWeight: 500,
+          }}
+        >
+          Seniority Badges
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+          Each job title is classified into one of three seniority tiers. The badge appears next to
+          the title in the Leads table. Seniority is <em>not</em> factored into the intent score —
+          a junior implementation hire signals a buying window just as much as a director-level one.
+          The badge is purely contextual to help you prioritise outreach.
+        </p>
+        <div
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {[
+            {
+              badge: 'EXEC',
+              desc: 'VP, Director, Head of, Chief, Controller, President — budget authority. These hires signal a strategic, top-down initiative.',
+            },
+            {
+              badge: 'SR',
+              desc: 'Senior, Manager, Lead, Principal — hands-on ownership. These roles typically own vendor selection and run the project day-to-day.',
+            },
+            {
+              badge: 'IC',
+              desc: 'Analyst, Coordinator, Associate, Junior — execution layer. Confirms the buying window is active; less direct buying authority.',
+            },
+          ].map((item) => (
+            <div key={item.badge} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-dm-mono), monospace',
+                  fontSize: 10,
+                  padding: '2px 6px',
+                  borderRadius: 3,
+                  background: 'rgba(99,102,241,0.1)',
+                  color: '#818cf8',
+                  border: '1px solid rgba(99,102,241,0.2)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+              >
+                {item.badge}
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {item.desc}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── Data freshness ──────────────────────────────────────────────────── */}
       <section>
         <h2
