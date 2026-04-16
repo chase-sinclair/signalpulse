@@ -154,3 +154,51 @@ You get 50+ cards, all showing "Finance" as the job family, with no way to find 
 
 The current tech stack list is extreemly large as it lists out all tools. Having the ability to search for a tool is necessary.
 
+---
+
+## FIXED — Product/Strategy Issues [2026-04-16] by Claude Code
+
+### P/S 1: No "last updated" timestamp
+**Root cause:** No signal freshness indicator existed anywhere in the UI. Sales reps had no way to verify they were looking at today's data vs. week-old data.
+
+**Fix:**
+- `app/page.tsx`: Added `kpi.lastRefreshed` derived from `signals[0]?.created_at` (already sorted DESC, so index 0 is the newest). Rendered as a small status line below the KPI row: `● Last signal: Apr 15 at 6:04 AM · Refreshes daily at 6:00 AM`. Only shown after loading and when signals are present.
+
+**If this regresses:** The timestamp derives from the loaded signal set, not from an explicit pipeline-run metadata table. If signals are cached or the API fails silently, this could show a stale timestamp. Long-term fix: add a `pipeline_runs` table and surface the last successful run time directly.
+
+---
+
+### P/S 2: Companies page — no search, no drill-through
+**Root cause:** `app/companies/page.tsx` was a server-only component. Cards were static, not clickable, and had no search.
+
+**Fix:**
+- Created `components/CompanyCardGrid.tsx` as a `'use client'` component. Accepts `cards` props from the server page.
+- Adds a search input (filters by company name, case-insensitive). Shows "N of M companies" count when a query is active.
+- Each card is now clickable — calls `router.push('/?search=CompanyName')` to open the Leads page pre-filtered to that company.
+- Cards show a "View leads →" hint in the bottom-right corner.
+- `app/companies/page.tsx`: Server component now delegates all rendering to `CompanyCardGrid`, keeping data fetching server-side. Removed now-unused `CompanyCardItem` and `FAMILY_COLORS`.
+
+**If this regresses:** `CompanyCardData` type is exported from `CompanyCardGrid.tsx` and aliased as `CompanyCard` in `companies/page.tsx`. If the shape changes, update both. The company search uses client-side filtering (all cards loaded upfront) — fine at current scale, would need server-side search if card count grows past ~500.
+
+---
+
+### P/S 3: Hot Leads definition opaque
+**Root cause:** `is_hot_lead` threshold (intent score ≥ 9 in n8n) was never surfaced in the UI. Users couldn't tell if 54% hot-lead rate was expected or a bug.
+
+**Fix:**
+- `components/KpiCard.tsx`: Added optional `subtitle` prop — renders a small dim note below the main value.
+- `app/page.tsx`: Hot Leads card now shows `subtitle="intent score ≥ 9"` so the threshold is visible directly on the KPI.
+- `app/methodology/page.tsx`: Added a highlighted callout box below the score component cards explaining the hot lead flag: threshold ≥ 9, set by n8n pipeline, stored as boolean, NOT recomputed by client-side scoring.
+
+**If this regresses:** The ≥ 9 threshold is set in n8n (human-owned). If the threshold changes there, the subtitle and Methodology callout both need manual updates. The `is_hot_lead` field is a DB boolean — it won't auto-update if n8n's threshold changes without a re-scrape.
+
+---
+
+### P/S 4: Tech Stack filter has no search
+**Root cause:** `FilterSidebar` rendered all tags as pills with no way to narrow them. As the tag list grows, it becomes unusable.
+
+**Fix:**
+- `components/FilterSidebar.tsx`: Added `tagSearch` local state. A "Search tools…" input renders above the tag pills. The visible tags are filtered to `tag.includes(query) || filters.tags.includes(tag)` — the second condition ensures already-selected tags always remain visible even when the query doesn't match them (preventing "where did my selection go" confusion).
+
+**If this regresses:** The tag search is purely a display filter — it never changes which tags are fetched or which are applied. `filters.tags` (the active selection) is always preserved regardless of `tagSearch` state.
+

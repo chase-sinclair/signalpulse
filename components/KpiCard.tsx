@@ -7,9 +7,10 @@ interface Props {
   value: string | number;
   icon: ReactNode;
   delay: number;
+  subtitle?: string; // optional definition note shown below the value
 }
 
-export default function KpiCard({ label, value, icon, delay }: Props) {
+export default function KpiCard({ label, value, icon, delay, subtitle }: Props) {
   const [visible, setVisible] = useState(false);
 
   // Staggered fade + translate-up on mount
@@ -58,6 +59,18 @@ export default function KpiCard({ label, value, icon, delay }: Props) {
       >
         {value}
       </span>
+      {subtitle && (
+        <span
+          style={{
+            fontSize: 10,
+            color: 'var(--text-muted)',
+            letterSpacing: '0.02em',
+            marginTop: 2,
+          }}
+        >
+          {subtitle}
+        </span>
+      )}
     </div>
   );
 }

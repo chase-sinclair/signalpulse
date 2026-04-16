@@ -1,20 +1,15 @@
 import { createSupabaseServer } from '@/lib/supabase';
 import type { Company, WeeklySnapshot } from '@/lib/types';
-import WeeklyDeltaBadge from '@/components/WeeklyDeltaBadge';
+import CompanyCardGrid from '@/components/CompanyCardGrid';
+import type { CompanyCardData } from '@/components/CompanyCardGrid';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type SnapshotRow = WeeklySnapshot & {
   companies: Company | null;
 };
 
-interface CompanyCard {
-  company: Company;
-  current_count: number;
-  previous_count: number;
-  delta: number;
-  dominant_family: string | null;
-  avg_intent_score: number | null;
-}
+// Re-use the shape exported by CompanyCardGrid so both stay in sync
+type CompanyCard = CompanyCardData;
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 async function getCompanyCards(): Promise<CompanyCard[]> {
@@ -87,16 +82,6 @@ async function getCompanyCards(): Promise<CompanyCard[]> {
   return Array.from(dedupedMap.values()).sort((a, b) => b.delta - a.delta);
 }
 
-// ── Family badge colors (reuse from TrendChart) ───────────────────────────────
-const FAMILY_COLORS: Record<string, string> = {
-  Finance:        '#818cf8',
-  Infrastructure: '#22d3ee',
-  Security:       '#fbbf24',
-  Sales:          '#34d399',
-  Operations:     '#a78bfa',
-  Other:          '#94a3b8',
-};
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default async function CompaniesPage() {
   const cards = await getCompanyCards();
@@ -155,124 +140,10 @@ export default async function CompaniesPage() {
           </p>
         </div>
       ) : (
-        /* Card grid */
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {cards.map((card) => (
-            <CompanyCardItem key={card.company.id} card={card} />
-          ))}
-        </div>
+        /* Client component — owns search state and clickable drill-through */
+        <CompanyCardGrid cards={cards} />
       )}
     </main>
   );
 }
 
-// ── Card component (server component — no interactivity needed) ───────────────
-function CompanyCardItem({ card }: { card: CompanyCard }) {
-  const familyColor = card.dominant_family
-    ? (FAMILY_COLORS[card.dominant_family] ?? FAMILY_COLORS.Other)
-    : FAMILY_COLORS.Other;
-
-  return (
-    <div
-      style={{
-        background: 'var(--bg-surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        padding: '18px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}
-    >
-      {/* Company name + delta */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <span
-          style={{
-            fontSize: 15,
-            fontWeight: 500,
-            color: 'var(--text-primary)',
-            lineHeight: 1.3,
-          }}
-        >
-          {card.company.name}
-        </span>
-        <WeeklyDeltaBadge delta={card.delta} />
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-dm-mono), monospace',
-              fontSize: 24,
-              fontWeight: 500,
-              color: 'var(--text-primary)',
-              lineHeight: 1,
-            }}
-          >
-            {card.current_count}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            signals this week
-          </span>
-        </div>
-
-        {card.previous_count > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span
-              style={{
-                fontFamily: 'var(--font-dm-mono), monospace',
-                fontSize: 16,
-                color: 'var(--text-secondary)',
-                lineHeight: 1,
-              }}
-            >
-              {card.previous_count}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              last week
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom row: family + avg score */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {card.dominant_family ? (
-          <span
-            style={{
-              fontFamily: 'var(--font-dm-mono), monospace',
-              fontSize: 11,
-              color: familyColor,
-              background: `${familyColor}1a`,
-              padding: '2px 7px',
-              borderRadius: 3,
-            }}
-          >
-            {card.dominant_family}
-          </span>
-        ) : (
-          <span />
-        )}
-        {card.avg_intent_score !== null && (
-          <span
-            style={{
-              fontFamily: 'var(--font-dm-mono), monospace',
-              fontSize: 11,
-              color: 'var(--text-muted)',
-            }}
-          >
-            avg {Number(card.avg_intent_score).toFixed(1)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}

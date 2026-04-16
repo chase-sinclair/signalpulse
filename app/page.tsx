@@ -167,12 +167,14 @@ export default function DashboardPage() {
 
   // ── KPI values (computed client-side, no extra fetch) ──────────────────────
   const kpi = useMemo(() => ({
-    total:     signals.length,
+    total:        signals.length,
     // Use global DB count so this KPI doesn't fluctuate when filters are applied.
     // A sales manager expects "Hot Leads" to be a stable baseline, not a filtered subset.
-    hotLeads:  globalHotLeads ?? signals.filter((s) => s.is_hot_lead).length,
-    avgScore:  mean(signals.map((s) => s.computed_score ?? s.intent_score)),
-    companies: new Set(signals.map((s) => s.company_name)).size,
+    hotLeads:     globalHotLeads ?? signals.filter((s) => s.is_hot_lead).length,
+    avgScore:     mean(signals.map((s) => s.computed_score ?? s.intent_score)),
+    companies:    new Set(signals.map((s) => s.company_name)).size,
+    // Most-recent created_at — signals are already ordered DESC from the API
+    lastRefreshed: signals[0]?.created_at ?? null,
   }), [signals, globalHotLeads]);
 
   // ── TrendChart data ────────────────────────────────────────────────────────
@@ -265,12 +267,41 @@ export default function DashboardPage() {
           ) : (
             <>
               <KpiCard label="Total Signals"    value={kpi.total}               icon={<IconSignals />}   delay={0}   />
-              <KpiCard label="Hot Leads"        value={kpi.hotLeads}            icon={<IconHot />}       delay={100} />
+              <KpiCard label="Hot Leads"        value={kpi.hotLeads}            icon={<IconHot />}       delay={100} subtitle="intent score ≥ 9" />
               <KpiCard label="Avg Intent Score" value={kpi.avgScore.toFixed(1)} icon={<IconScore />}     delay={200} />
               <KpiCard label="Companies"        value={kpi.companies}           icon={<IconCompanies />} delay={300} />
             </>
           )}
         </div>
+
+        {/* Last-refreshed status — tells sales reps the data is current */}
+        {!loading && kpi.lastRefreshed && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              marginTop: -8, // tuck closer under KPI cards
+            }}
+          >
+            <span style={{ color: '#10b981', fontSize: 8 }}>●</span>
+            <span>
+              Last signal:{' '}
+              <span style={{ fontFamily: 'var(--font-dm-mono), monospace', color: 'var(--text-secondary)' }}>
+                {new Date(kpi.lastRefreshed).toLocaleDateString('en-US', {
+                  month: 'short', day: 'numeric',
+                })}{' '}
+                at{' '}
+                {new Date(kpi.lastRefreshed).toLocaleTimeString('en-US', {
+                  hour: 'numeric', minute: '2-digit', hour12: true,
+                })}
+              </span>
+              {' '}· Refreshes daily at 6:00 AM
+            </span>
+          </div>
+        )}
 
         {/* Error banner */}
         {fetchError && (

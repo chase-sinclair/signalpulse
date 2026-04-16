@@ -309,6 +309,33 @@ export default function MethodologyPage() {
             <ScoreComponentCard key={component.name} component={component} />
           ))}
         </div>
+
+        {/* Hot Lead threshold callout */}
+        <div
+          style={{
+            marginTop: 16,
+            background: 'rgba(245,158,11,0.06)',
+            border: '1px solid rgba(245,158,11,0.2)',
+            borderRadius: 8,
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>🔥</span>
+          <div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+              Hot Lead threshold: intent score ≥ 9
+            </span>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              The hot lead flag is set by the n8n pipeline when a signal&apos;s AI-generated intent
+              score meets or exceeds 9. It is stored as a boolean on the signal record and is{' '}
+              <em>not</em> recomputed when the client-side scoring is recalculated. Use the
+              computed intent score (shown in the Leads table) for the most up-to-date ranking.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* ── Seniority badges ───────────────────────────────────────────────── */}

@@ -39,6 +39,8 @@ export default function FilterSidebar({ filters, onChange, availableTags, signal
   );
   // Local search state — debounced 300ms before propagating upward
   const [localSearch, setLocalSearch] = useState(filters.search);
+  // Tech stack pill filter — narrows the visible tag list without affecting active selections
+  const [tagSearch, setTagSearch] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -304,8 +306,34 @@ export default function FilterSidebar({ filters, onChange, availableTags, signal
         {availableTags.length === 0 ? (
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading tags…</span>
         ) : (
+          <>
+            {/* Tag search — always show active tags regardless of query */}
+            <input
+              type="text"
+              placeholder="Search tools…"
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                padding: '5px 9px',
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box',
+                marginBottom: 8,
+              }}
+            />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {availableTags.map((tag) => {
+            {availableTags
+              .filter((tag) =>
+                // Always show active tags so selections don't disappear while searching
+                filters.tags.includes(tag) ||
+                tag.toLowerCase().includes(tagSearch.toLowerCase())
+              )
+              .map((tag) => {
               const active = filters.tags.includes(tag);
               const count = tagCounts[tag] ?? 0;
               return (
@@ -336,6 +364,7 @@ export default function FilterSidebar({ filters, onChange, availableTags, signal
               );
             })}
           </div>
+          </>
         )}
 
         <div style={divider} />
