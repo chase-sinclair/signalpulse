@@ -20,18 +20,26 @@ export async function GET(request: NextRequest) {
     const tags     = searchParams.getAll('tag');
 
     // Build query against the view (includes tech_stack array)
+    // No row cap — load all matching signals. Paginate here if the dataset grows large.
     let query = supabase
       .from('signals_with_tags')
       .select('*')
       .gte('intent_score', minScore)
-      .order('created_at', { ascending: false })
-      .limit(200);
+      .order('created_at', { ascending: false });
 
     if (families.length > 0) query = query.in('job_family', families);
     if (hotOnly)              query = query.eq('is_hot_lead', true);
     if (search)               query = query.ilike('company_name', `%${search}%`);
 
-    const { data, error } = await query;
+    // Fetch global hot-lead count in parallel — used by the KPI card so it
+    // stays stable regardless of which filters the user has applied.
+    const [{ data, error }, { count: hotLeadsTotal }] = await Promise.all([
+      query,
+      supabase
+        .from('job_signals')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_hot_lead', true),
+    ]);
 
     if (error) {
       console.error('[signals/route] Supabase error:', error.message);
@@ -39,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Tag filter: Supabase doesn't support array overlap in .filter() easily,
-    // so we post-filter in JS. At 200 row limit this is negligible overhead.
+    // so we post-filter in JS. Acceptable at current dataset size (~300–500 rows).
     const filtered = tags.length > 0
       ? (data ?? []).filter(row =>
           tags.some(t => (row.tech_stack as string[])?.includes(t))
@@ -66,6 +74,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       signals: enriched,
       count: enriched.length,
+      hot_leads_total: hotLeadsTotal ?? 0,
     });
 
   } catch (err) {

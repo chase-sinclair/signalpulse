@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import type { JobSignal } from '@/lib/types';
+import type { JobSignal, ScoreComponents } from '@/lib/types';
 import { truncate, companyInitials } from '@/lib/utils';
 import IntentScoreBadge from './IntentScoreBadge';
 import ScoreBreakdown from './ScoreBreakdown';
@@ -116,6 +116,19 @@ function recencyInfo(createdAt: string): { color: string; label: string } {
   return { color: '#475569', label: 'Potentially stale (7+ days)' };
 }
 
+// ── Reasoning blurb — why this signal was flagged ─────────────────────────────
+// Summarises the non-zero score components so sales reps know exactly what
+// triggered this lead without relying on volatile AI-generated hook text.
+function buildReasoningBlurb(components: ScoreComponents | null | undefined): string {
+  if (!components) return '—';
+  const parts: string[] = [];
+  if (components.implementation_signal.score > 0) parts.push(components.implementation_signal.reason);
+  if (components.tool_specificity.score > 0)      parts.push(components.tool_specificity.reason);
+  if (components.buying_window.score > 0)          parts.push(components.buying_window.reason);
+  // Recency already shown via the traffic-light dot on the Added column
+  return parts.length > 0 ? parts.join(' · ') : 'No strong signals — review score breakdown';
+}
+
 // ── Sort icon ────────────────────────────────────────────────────────────────
 function SortIcon({ field, current, dir }: { field: SortField; current: SortField; dir: SortDir }) {
   if (field !== current) return <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>↕</span>;
@@ -131,15 +144,6 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
   const [sortField, setSortField] = useState<SortField>('intent_score');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Track which row's hook was just copied for brief visual feedback
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  function copyHook(signal: JobSignal) {
-    if (!signal.sales_hook) return;
-    navigator.clipboard.writeText(signal.sales_hook);
-    setCopiedId(signal.id);
-    setTimeout(() => setCopiedId(null), 2000);
-  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -197,7 +201,7 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
           overflow: 'hidden',
         }}
       >
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', height: 'calc(100vh - 250px)', minHeight: 320 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
               <tr style={{ background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 2 }}>
@@ -219,8 +223,8 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                   Intent
                   <SortIcon field="intent_score" current={sortField} dir={sortDir} />
                 </th>
-                {/* Sales Hook */}
-                <th style={thStyle}>Hook</th>
+                {/* Reasoning */}
+                <th style={thStyle}>Reasoning</th>
                 {/* Posted — sortable */}
                 <th
                   style={{ ...thStyle, cursor: 'pointer' }}
@@ -382,16 +386,21 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                         />
                       </td>
 
-                      {/* Sales Hook — tooltip on hover */}
-                      <td style={{ ...tdStyle, maxWidth: 220 }}>
-                        <div className="tooltip-parent" style={{ cursor: 'default' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                            {truncate(signal.sales_hook, 60)}
-                          </span>
-                          {signal.sales_hook && signal.sales_hook.length > 60 && (
-                            <span className="tooltip-text">{signal.sales_hook}</span>
-                          )}
-                        </div>
+                      {/* Reasoning — why this signal was flagged */}
+                      <td style={{ ...tdStyle, maxWidth: 260 }}>
+                        {(() => {
+                          const blurb = buildReasoningBlurb(signal.score_components);
+                          return (
+                            <div className="tooltip-parent" style={{ cursor: 'default' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.4 }}>
+                                {truncate(blurb, 72)}
+                              </span>
+                              {blurb.length > 72 && (
+                                <span className="tooltip-text">{blurb}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Added — with recency traffic-light dot */}
@@ -438,27 +447,6 @@ export default function LeadsTable({ signals, loading, onReset }: Props) {
                       {/* Actions — Copy Hook, LinkedIn, Source */}
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          {/* Copy Hook */}
-                          <button
-                            onClick={() => copyHook(signal)}
-                            disabled={!signal.sales_hook}
-                            title={signal.sales_hook ? 'Copy sales hook' : 'No hook available'}
-                            style={{
-                              fontFamily: 'var(--font-dm-mono), monospace',
-                              fontSize: 10,
-                              padding: '3px 7px',
-                              borderRadius: 4,
-                              border: '1px solid var(--border)',
-                              background: copiedId === signal.id ? 'rgba(16,185,129,0.12)' : 'transparent',
-                              color: copiedId === signal.id ? '#10b981' : signal.sales_hook ? 'var(--text-secondary)' : 'var(--text-muted)',
-                              cursor: signal.sales_hook ? 'pointer' : 'default',
-                              transition: 'all 150ms',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {copiedId === signal.id ? '✓' : 'Copy'}
-                          </button>
-
                           {/* LinkedIn — find decision makers */}
                           <a
                             href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(signal.company_name + ' Hiring Manager')}`}

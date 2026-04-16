@@ -117,6 +117,8 @@ const IconCompanies = () => (
 export default function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_FILTERS);
   const [signals, setSignals] = useState<JobSignal[]>([]);
+  // Global hot-lead count from DB — stays constant regardless of active filters
+  const [globalHotLeads, setGlobalHotLeads] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -144,8 +146,11 @@ export default function DashboardPage() {
       const qs = buildQueryString(f);
       const res = await fetch(`/api/signals?${qs}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { signals: JobSignal[]; count: number };
+      const data = (await res.json()) as { signals: JobSignal[]; count: number; hot_leads_total: number };
       setSignals(data.signals ?? []);
+      // hot_leads_total is a separate DB count query unaffected by filters —
+      // always reflects the true global hot-lead count.
+      setGlobalHotLeads(data.hot_leads_total ?? 0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       console.error('Failed to fetch signals:', msg);
@@ -163,10 +168,12 @@ export default function DashboardPage() {
   // ── KPI values (computed client-side, no extra fetch) ──────────────────────
   const kpi = useMemo(() => ({
     total:     signals.length,
-    hotLeads:  signals.filter((s) => s.is_hot_lead).length,
+    // Use global DB count so this KPI doesn't fluctuate when filters are applied.
+    // A sales manager expects "Hot Leads" to be a stable baseline, not a filtered subset.
+    hotLeads:  globalHotLeads ?? signals.filter((s) => s.is_hot_lead).length,
     avgScore:  mean(signals.map((s) => s.computed_score ?? s.intent_score)),
     companies: new Set(signals.map((s) => s.company_name)).size,
-  }), [signals]);
+  }), [signals, globalHotLeads]);
 
   // ── TrendChart data ────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
@@ -252,7 +259,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI row — 4-across desktop, 2×2 mobile */}
-        <div className="kpi-grid">
+        <div className="kpi-grid" style={{ flexShrink: 0 }}>
           {loading ? (
             <KpiSkeleton />
           ) : (
@@ -270,11 +277,16 @@ export default function DashboardPage() {
           <ErrorBanner message={fetchError} onRetry={() => fetchSignals(filters)} />
         )}
 
-        {/* Leads table */}
-        <LeadsTable signals={signals} loading={loading} onReset={handleReset} />
+        {/* Leads table — flexShrink:0 prevents the flex parent from squishing
+            the table to fit the chart; main scrolls instead */}
+        <div style={{ flexShrink: 0 }}>
+          <LeadsTable signals={signals} loading={loading} onReset={handleReset} />
+        </div>
 
-        {/* Trend chart */}
-        <TrendChart data={trendData} />
+        {/* Trend chart — below the fold; scroll down to see it */}
+        <div style={{ flexShrink: 0 }}>
+          <TrendChart data={trendData} />
+        </div>
       </main>
     </div>
   );
