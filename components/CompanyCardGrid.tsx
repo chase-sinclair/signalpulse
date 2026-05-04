@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Company } from '@/lib/types';
 import WeeklyDeltaBadge from '@/components/WeeklyDeltaBadge';
+import CompanyBarChart from '@/components/CompanyBarChart';
 
 // Mirrors the shape built by getCompanyCards() in app/companies/page.tsx
 export interface CompanyCardData {
@@ -30,16 +31,28 @@ interface Props {
 
 export default function CompanyCardGrid({ cards }: Props) {
   const [search, setSearch] = useState('');
+  const [familyFilter, setFamilyFilter] = useState('All');
   const router = useRouter();
 
+  const familyFiltered = familyFilter === 'All'
+    ? cards
+    : cards.filter((c) => c.dominant_family === familyFilter);
+
   const filtered = search.trim()
-    ? cards.filter((c) =>
+    ? familyFiltered.filter((c) =>
         c.company.name.toLowerCase().includes(search.trim().toLowerCase())
       )
-    : cards;
+    : familyFiltered;
 
   return (
     <>
+      {/* Ranked bar chart — family filter is shared with card grid below */}
+      <CompanyBarChart
+        cards={cards}
+        familyFilter={familyFilter}
+        onFamilyChange={setFamilyFilter}
+      />
+
       {/* Search bar */}
       <div style={{ marginBottom: 20 }}>
         <input
@@ -60,7 +73,7 @@ export default function CompanyCardGrid({ cards }: Props) {
             boxSizing: 'border-box',
           }}
         />
-        {search && (
+        {(search || familyFilter !== 'All') && (
           <span style={{ marginLeft: 12, fontSize: 12, color: 'var(--text-muted)' }}>
             {filtered.length} of {cards.length} companies
           </span>
