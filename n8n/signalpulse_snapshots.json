@@ -1,0 +1,76 @@
+{
+  "name": "signalpulse_snapshots",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * 0"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a7b55a7e-ebcf-450d-ad05-f9be4103ea68",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qolusthqrhcontdvfvyx.supabase.co/rest/v1/rpc/refresh_weekly_snapshots",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "63e70a3a-55b6-4c10-bc08-32d1c6fb0a66",
+      "name": "HTTP Request",
+      "credentials": {
+        "supabaseApi": {
+          "id": "MRF0XLbynNt4DrxJ",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a6f36015-8c8d-43a2-b314-239c5c930430",
+  "meta": {
+    "instanceId": "25f3310bd2cb4b9120e60729f8388c1e3c8d003be62ba4ad6c94131cbb057ecd"
+  },
+  "id": "fZHkgx6bNMxEV0JN",
+  "tags": []
+}

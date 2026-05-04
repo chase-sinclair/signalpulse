@@ -1,0 +1,572 @@
+{
+  "name": "SignalPulse AI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "92181dc6-ea98-444a-808a-eb8acb98ac69",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mission Control: SignalPulse Search Configuration\nreturn [\n  {\n    json: {\n      search_queries: [\n        // Finance\n        \"NetSuite Implementation Manager\",\n        \"Head of Finance automation\",\n        \"ERP Project Manager\",\n        \"Business Systems Analyst NetSuite\",\n        // Infrastructure\n        \"Snowflake data engineer implementation\",\n        \"dbt data transformation engineer\",\n        // Security\n        \"Okta implementation engineer\",\n        \"CrowdStrike deployment administrator\",\n        // Sales\n        \"Salesforce implementation administrator\",\n        \"HubSpot CRM implementation\",\n        // Operations\n        \"Workday implementation consultant\",\n        \"Rippling HRIS implementation\"\n      ],\n      lookback_days: 7\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "411b386b-69cb-4156-9259-8e376c06c163",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "search_queries",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "d98d2b2e-5cfb-427a-805b-bc6d086b07ac",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "google_jobs",
+        "q": "={{ $json.search_queries }}",
+        "additionalFields": {
+          "chips": "date_posted:today"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "8a42c065-4c7d-424f-9d4e-fc61f6b803c3",
+      "name": "Google_jobs search",
+      "credentials": {
+        "serpApi": {
+          "id": "hc2MisciYihtiR6R",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobs_results",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        832,
+        0
+      ],
+      "id": "3866c375-7e9c-48af-a5c2-514f35a5f151",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a B2B Sales Intelligence agent specializing in identifying high-intent software implementation and digital transformation signals across all business functions.\n\nYour goal is to find companies currently in a \"State of Change\" — actively migrating, implementing, or optimizing new software across Finance, Infrastructure, Security, Sales, or Operations.\n\nCORE RULES:\n1. VENDOR EXCLUSION: If the hiring company IS the software vendor itself \n(e.g., Okta hiring any role, Salesforce hiring any role, Workday hiring \nany role, NetSuite hiring any role), you MUST set score to 0. Check the \ncompany_name field carefully before scoring.\n\n2. SCORING (1-10):\n   - 10: Explicitly mentions a new implementation or migration starting now/soon.\n   - 7-9: Mentions heavy optimization or digital transformation of legacy systems.\n   - 1-6: Standard maintenance or support of an existing system.\n\n3. SCOPE: Apply the same scoring logic regardless of job family — a Snowflake migration is as significant a buying signal as a NetSuite implementation.\n\n4. OUTPUT: You must return valid JSON only. No markdown, no backticks, no explanation."
+            },
+            {
+              "content": "=Analyze this job posting:\nCompany: {{ $json.company_name }}\nTitle: {{ $json.title }}\nDescription: {{ $json.description }}\n\nReturn a JSON object with this exact structure:\n{\n  \"score\": [Integer 1-10],\n  \"reason\": \"One sentence referencing the SPECIFIC company and role title explaining \nwhy this is or isn't a high-intent lead. Do not describe a different role.\",\n  \"tech_stack\": [\"Array\", \"of\", \"software\", \"names\", \"mentioned\"],\n  \"job_family\": \"Pick EXACTLY ONE: Finance, Infrastructure, Security, Sales, Operations, or Other. \nReturn only the single word — never combine with | or /\"\n}\n\nJOB FAMILY GUIDE:\n- Finance: ERP, accounting, FP&A, CFO, Controller, AP/AR, spend management\n- Infrastructure: Data engineering, cloud, data warehouse, analytics engineering\n- Security: IAM, endpoint security, SOC, compliance tooling, SIEM\n- Sales: CRM, sales ops, revenue operations, marketing automation\n- Operations: HRIS, payroll, workforce management, procurement\n- Other: Anything that doesn't clearly fit the above\n\nIf no specific software brands are mentioned, return \"tech_stack\": [].\n\nIMPORTANT: Always infer software from the job title itself.\nIf the title contains \"NetSuite\", \"SAP\", \"Workday\", \"Salesforce\",\nor any other software name, include it in tech_stack even if\nthe description body does not explicitly list it."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "f5966b08-e249-4976-8b35-c1351d3030f5",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "5475M8MgJYZbXtxk",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9ca2ab01-58e1-4978-8070-385afdc6e590",
+              "leftValue": "={{ $json.output[0].content[0].text.score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "876c41e9-d22d-4511-b507-392061aa8900",
+              "leftValue": "={{ $json.output[0].content[0].text.score }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "d3c856cb-55a5-40e6-a039-ef9f758407a5",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "27753920-3c56-442c-9aba-793cbb965ea2",
+              "name": "company_name",
+              "value": "={{ $node[\"Split Out1\"].json[\"company_name\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "4d2937cf-3601-4dfb-8e4a-b984427e61ab",
+              "name": "job_title",
+              "value": "={{ $node[\"Split Out1\"].json[\"title\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "33523d1f-13df-4dfb-8f79-567133b00ae5",
+              "name": "intent_score",
+              "value": "={{ $json.output[0].content[0].text.score }}",
+              "type": "number"
+            },
+            {
+              "id": "0b7c4c47-b686-4e10-8e82-b3811be6b229",
+              "name": "sales_hook",
+              "value": "={{ $json.output[0].content[0].text.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "f21821fe-1a51-4dcd-9b71-42b83a28fc5d",
+              "name": "job_url",
+              "value": "={{ $node[\"Split Out1\"].json[\"share_link\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "8b0c7383-f5be-408d-991f-0a54bc7c6cae",
+              "name": "external_job_id",
+              "value": "={{ $node[\"Split Out1\"].json[\"job_id\"] || $node[\"Split Out1\"].json[\"share_link\"] || $node[\"Split Out1\"].json[\"title\"] + \"_\" + $node[\"Split Out1\"].json[\"company_name\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "563d67f3-0fcf-40b1-9721-8d690691a2fd",
+              "name": "raw_description",
+              "value": "={{ $node[\"Split Out1\"].json[\"description\"] ? $node[\"Split Out1\"].json[\"description\"].replace(/[^a-zA-Z0-9 .,:()\\-]/g, ' ') : 'No description' }}",
+              "type": "string"
+            },
+            {
+              "id": "b18421d8-b9d1-4ff2-aff3-ea9a2c3dc78c",
+              "name": "posted_at",
+              "value": "={{ $node[\"Split Out1\"].json[\"detected_extensions\"][\"posted_at\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "3e163b89-fd2b-4732-84bb-97e1bf6bc347",
+              "name": "is_hot_lead",
+              "value": "={{ Number($json.output[0].content[0].text.score) >= 9 }}",
+              "type": "boolean"
+            },
+            {
+              "id": "1c8ead17-1722-486d-8b00-cb2797e475e7",
+              "name": "job_family",
+              "value": "={{ $json.output[0].content[0].text.job_family.charAt(0).toUpperCase() + $json.output[0].content[0].text.job_family.slice(1) }}",
+              "type": "string"
+            },
+            {
+              "id": "eef2c406-6a9a-44aa-a122-fcaca7434b1e",
+              "name": "tech_stack",
+              "value": "={{ $json.output[0].content[0].text.tech_stack }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1536,
+        0
+      ],
+      "id": "d73f605b-9de6-4356-8832-616bd41fe8e4",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "57de5a15-2994-4ea9-94db-336fddd7fe69",
+              "name": "tech_stack",
+              "value": "={{ $node[\"Edit Fields\"].json.tech_stack }}",
+              "type": "array"
+            },
+            {
+              "id": "1ca935db-fb8f-4bfb-a4ae-37af3264fdec",
+              "name": "id",
+              "value": "={{ $('Get a row').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "f29f219d-83a4-4026-9769-a0db8c9137ff",
+              "name": "company_id",
+              "value": "={{ $('Get a row').item.json.company_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2336,
+        0
+      ],
+      "id": "90a88b3b-213b-441d-a904-d2f35ebe2129",
+      "name": "Map Tags to Job ID"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "tech_stack",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2544,
+        0
+      ],
+      "id": "8aacd88b-c274-4435-ae69-93eb0fd5812c",
+      "name": "Split Tech Stack Tags"
+    },
+    {
+      "parameters": {
+        "tableId": "signal_tags",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "tag",
+              "fieldValue": "={{ $json.tech_stack }}"
+            },
+            {
+              "fieldId": "signal_id",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2752,
+        0
+      ],
+      "id": "acdd1039-701a-4e89-94af-44084ef2a146",
+      "name": "Insert Tags to DB",
+      "credentials": {
+        "supabaseApi": {
+          "id": "MRF0XLbynNt4DrxJ",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "job_signals",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "external_job_id",
+              "keyValue": "={{ $node[\"Edit Fields\"].json[\"external_job_id\"] }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        0
+      ],
+      "id": "e8ecbc59-4245-4926-ba7d-1570bc6e2656",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "MRF0XLbynNt4DrxJ",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO companies (name)\nVALUES ('{{ $json.company_name }}')\nON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name\nRETURNING id, name;",
+        "options": {
+          "queryBatching": "independently"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1744,
+        0
+      ],
+      "id": "f9bf6084-c9ff-44bb-b099-ab9feb940851",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "YkIPIGTw4Xo2j62s",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO job_signals (\n  external_job_id, company_name, company_id, job_title,\n  intent_score, sales_hook, job_url, raw_description,\n  posted_at, is_hot_lead, job_family\n) VALUES (\n  $1, $2, $3, $4, $5::integer, $6, $7, $8, $9, ($10)::text::boolean, $11\n)\nON CONFLICT (external_job_id) DO NOTHING\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [\n  $node[\"Edit Fields\"].json.external_job_id,\n  $node[\"Edit Fields\"].json.company_name,\n  $node[\"Execute a SQL query\"].json.id,\n  $node[\"Edit Fields\"].json.job_title,\n  $node[\"Edit Fields\"].json.intent_score,\n  $node[\"Edit Fields\"].json.sales_hook,\n  $node[\"Edit Fields\"].json.job_url,\n  $node[\"Edit Fields\"].json.raw_description,\n  $node[\"Edit Fields\"].json.posted_at,\n  $node[\"Edit Fields\"].json.is_hot_lead,\n  $node[\"Edit Fields\"].json.job_family\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1952,
+        0
+      ],
+      "id": "0ec0246e-51b9-41ce-98e4-c9c26845ed7f",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "YkIPIGTw4Xo2j62s",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Google_jobs search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_jobs search": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Tags to Job ID": {
+      "main": [
+        [
+          {
+            "node": "Split Tech Stack Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Tech Stack Tags": {
+      "main": [
+        [
+          {
+            "node": "Insert Tags to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Map Tags to Job ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6d89e699-902b-4a1e-975a-ad6a89bdcb6e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25f3310bd2cb4b9120e60729f8388c1e3c8d003be62ba4ad6c94131cbb057ecd"
+  },
+  "id": "MBrgMiAOCwcJHF7e",
+  "tags": []
+}
